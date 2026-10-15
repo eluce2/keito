@@ -102,7 +102,6 @@ If you set **Status Folder** on the Running Timer command, the menu bar writes `
 - Approved or locked entries return **403** "This time entry is locked…" live, not the documented 409. The extension treats both as locked.
 - Durations show the `hours` value Keito returns, which is refreshed on each load. The menu bar refreshes every minute.
 - **Open Keito** opens `https://app.keito.ai`, or an installed app named "Keito" if one exists. Keito does not document deep links.
-- The extension icon is a neutral placeholder, not Keito's official logo. The command icons are inherited generic glyphs.
 - Rate limits: the extension honours `Retry-After` up to 30 seconds and retries at most twice. It retries server and network errors only for reads, so a create or start is never sent twice.
 - Only time entries are supported. Expenses, approvals submission, and invoices are not.
 
@@ -114,6 +113,10 @@ Both were evaluated on 2026-10-15:
 - The Keito CLI is a separate Homebrew/Rust program. It has no edit, restart, or replace-running commands. It would add a process launch per action and a dependency Raycast extensions should not require.
 
 The extension uses a small typed adapter instead ([`src/services/keito`](src/services/keito)).
+
+## Icons
+
+`assets/keito-icon.png` uses the official Keito mark ([`assets/keito-mark.svg`](assets/keito-mark.svg), from `https://keito.ai/favicon.svg`) in white on Keito navy (`#0F172A`). The command icons are the inherited glyphs, recolored to the same navy. To regenerate them, run `node scripts/generate-icons.js`. It has no dependencies and reads the original glyphs from the first Git commit.
 
 ## Development
 

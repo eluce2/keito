@@ -2,16 +2,16 @@
 //
 //   node scripts/generate-icons.js
 //
-// - assets/keito-icon.png: the official Keito mark (assets/keito-mark.svg, from
-//   https://keito.ai/favicon.svg) in white on a Keito navy tile.
-// - Command icons: the existing glyphs recolored from orange to Keito navy. The original
+// - assets/keito-icon.png: the Keito mark (assets/keito-mark.svg, traced from the official
+//   logo at https://keito.ai/images/keito-logo.png) in white on a black tile, the logo's colors.
+// - Command icons: the existing glyphs recolored from orange to the same black. The original
 //   orange versions are read from Git (first commit) so the script can be re-run.
 const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { readPng, writePng } = require("./png");
 
-const NAVY = [0x0f, 0x17, 0x2a]; // fill color of the official mark
+const BRAND = [0, 0, 0]; // the official logo is black on white
 const WHITE = [255, 255, 255];
 const root = path.join(__dirname, "..");
 const asset = (name) => path.join(root, "assets", name);
@@ -63,7 +63,7 @@ function extensionIcon() {
       const i = (y * width + x) * 4;
       pixels[i + 3] = tile.pixels[i + 3];
       if (!pixels[i + 3]) continue;
-      NAVY.forEach((v, k) => (pixels[i + k] = v));
+      BRAND.forEach((v, k) => (pixels[i + k] = v));
       let covered = 0;
       for (let sy = 0; sy < samples; sy++)
         for (let sx = 0; sx < samples; sx++) {
@@ -77,13 +77,13 @@ function extensionIcon() {
   fs.writeFileSync(asset("keito-icon.png"), writePng(width, height, pixels));
 }
 
-// Command icons: white glyphs on orange -> white glyphs on navy. Orange has a blue channel near
+// Command icons: white glyphs on orange -> white glyphs on black. Orange has a blue channel near
 // 0 and white 255, so the blue channel gives the anti-aliased mix between tile and glyph.
 function recolor(name) {
   const { width, height, pixels } = originalPng(name);
   for (let i = 0; i < pixels.length; i += 4) {
     const mix = pixels[i + 2] / 255;
-    for (let k = 0; k < 3; k++) pixels[i + k] = Math.round(NAVY[k] * (1 - mix) + WHITE[k] * mix);
+    for (let k = 0; k < 3; k++) pixels[i + k] = Math.round(BRAND[k] * (1 - mix) + WHITE[k] * mix);
   }
   fs.writeFileSync(asset(name), writePng(width, height, pixels));
 }

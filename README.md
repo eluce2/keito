@@ -116,7 +116,7 @@ The extension uses a small typed adapter instead ([`src/services/keito`](src/ser
 
 ## Icons
 
-`assets/keito-icon.png` uses the official Keito mark ([`assets/keito-mark.svg`](assets/keito-mark.svg), from `https://keito.ai/favicon.svg`) in white on Keito navy (`#0F172A`). The command icons are the inherited glyphs, recolored to the same navy. To regenerate them, run `node scripts/generate-icons.js`. It has no dependencies and reads the original glyphs from the first Git commit.
+`assets/keito-icon.png` shows the Keito mark in white on black, the official logo's colours. The mark ([`assets/keito-mark.svg`](assets/keito-mark.svg)) was traced from the official logo at `https://keito.ai/images/keito-logo.png`: three equal bars at 45°, matching the logo's pixels to within about 1%. The site's `favicon.svg` is a cramped variant and is not used. The command icons are the inherited glyphs, recoloured to black. To regenerate them, run `node scripts/generate-icons.js`. It has no dependencies and reads the original glyphs from the first Git commit.
 
 ## Development
 

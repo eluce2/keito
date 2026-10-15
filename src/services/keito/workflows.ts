@@ -140,7 +140,9 @@ export type EntryPlan =
   | { kind: "timer"; input: StartTimerInput }
   | { kind: "create"; body: TimeEntryCreateBody }
   | { kind: "update"; id: string; body: TimeEntryUpdateBody }
-  | { kind: "error"; field: "project" | "task" | "duration" | "startTime" | "endTime" | "form"; message: string };
+  | { kind: "error"; field: EntryField; message: string };
+
+export type EntryField = "project" | "task" | "notes" | "duration" | "startTime" | "endTime" | "form";
 
 function minutesToHours(minutes: number): number {
   return Math.round((minutes / 60) * 10000) / 10000;
@@ -152,7 +154,14 @@ function minutesToHours(minutes: number): number {
  */
 export function planEntry(
   values: EntryFormValues,
-  options: { mode: EntryMode; existing?: TimeEntry; externalReference?: ExternalReference }
+  options: {
+    mode: EntryMode;
+    existing?: TimeEntry;
+    externalReference?: ExternalReference;
+    /** Workspace settings reported by GET /users/me. */
+    requireNotes?: boolean;
+    allowPastTimerStarts?: boolean;
+  }
 ): EntryPlan {
   const { mode, existing } = options;
   if (!values.projectId) return { kind: "error", field: "project", message: "Choose a project." };
@@ -194,6 +203,9 @@ export function planEntry(
   }
 
   const notes = values.notes ?? "";
+  if (options.requireNotes && !notes.trim()) {
+    return { kind: "error", field: "notes", message: "Your Keito workspace requires notes on time entries." };
+  }
 
   if (existing) {
     const body: TimeEntryUpdateBody = {};
@@ -212,6 +224,13 @@ export function planEntry(
 
   const reference = externalReferenceInput(options.externalReference);
   const isTimer = mode === "duration" ? hours === undefined : endedTime === undefined;
+  if (isTimer && startedTime && options.allowPastTimerStarts === false) {
+    return {
+      kind: "error",
+      field: "startTime",
+      message: "Your Keito workspace does not allow past timer starts. Leave Start Time blank to start now.",
+    };
+  }
   if (isTimer) {
     return {
       kind: "timer",

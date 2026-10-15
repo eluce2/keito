@@ -17,13 +17,15 @@ import { KeitoGate } from "./components/KeitoGate";
 import { entryEditability, formatHours as formatHoursValue } from "./services/keito/normalize";
 import { ResolvedSession, scopedKey } from "./services/keito/session";
 import { Project, TimeEntry } from "./services/keito/types";
-import { planEntry, startTimer } from "./services/keito/workflows";
+import { EntryField, planEntry, startTimer } from "./services/keito/workflows";
+import { resolveEntryMode } from "./services/keito/dates";
 import { parseDuration } from "./services/parseDuration";
 import {
   confirmReplaceRunning,
   getApi,
   getKeitoPreferences,
   refreshMenuBar,
+  todayString,
   showKeitoError,
   useProjects,
   useProjectTasks,
@@ -84,7 +86,8 @@ export function ProjectDropdownItems({ projects }: { projects: Project[] }) {
 export function EntryForm({ session, entry, template, viewDate, onSave }: EntryFormProps) {
   const { pop } = useNavigation();
   const prefs = getKeitoPreferences();
-  const mode = prefs.entryMode ?? "duration";
+  const settings = session.identity.settings ?? { requireNotes: false };
+  const mode = resolveEntryMode(prefs.entryMode, settings);
   const timeFormat = prefs.timeFormat ?? "hours_minutes";
   const source = entry ?? template;
   const isEdit = !!entry;
@@ -101,10 +104,10 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
   );
   const [startTime, setStartTime] = useState(entry?.startedTime ?? "");
   const [endTime, setEndTime] = useState(entry && !isRunning ? entry.endedTime ?? "" : "");
-  const [spentDate, setSpentDate] = useState<Date>(entry ? dayjs(entry.spentDate).toDate() : viewDate ?? new Date());
-  const [errors, setErrors] = useState<
-    Partial<Record<"project" | "task" | "duration" | "startTime" | "endTime", string>>
-  >({});
+  const [spentDate, setSpentDate] = useState<Date>(
+    entry ? dayjs(entry.spentDate).toDate() : viewDate ?? dayjs(todayString(session)).toDate()
+  );
+  const [errors, setErrors] = useState<Partial<Record<Exclude<EntryField, "form">, string>>>({});
 
   const {
     value: lastProject,
@@ -152,7 +155,13 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
     const date = dayjs(spentDate).format("YYYY-MM-DD");
     const plan = planEntry(
       { projectId, taskId: selectedTaskId, spentDate: date, notes, duration, startTime, endTime },
-      { mode, existing: entry, externalReference: template?.externalReference }
+      {
+        mode,
+        existing: entry,
+        externalReference: template?.externalReference,
+        requireNotes: settings.requireNotes,
+        allowPastTimerStarts: settings.allowPastTimerStarts,
+      }
     );
 
     if (plan.kind === "error") {
@@ -161,7 +170,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
       return;
     }
 
-    if (plan.kind === "timer" && !dayjs(spentDate).isSame(dayjs(), "day")) {
+    if (plan.kind === "timer" && date !== todayString(session)) {
       const confirmed = await confirmAlert({
         icon: Icon.ExclamationMark,
         title: "Start a Timer on Another Day?",
@@ -261,7 +270,17 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
 
       <Form.Separator />
 
-      <Form.TextArea id="notes" title="Notes" value={notes} onChange={setNotes} />
+      <Form.TextArea
+        id="notes"
+        title="Notes"
+        value={notes}
+        error={errors.notes}
+        info={settings.requireNotes ? "Your Keito workspace requires notes." : undefined}
+        onChange={(v) => {
+          setNotes(v);
+          setErrors((e) => ({ ...e, notes: undefined }));
+        }}
+      />
 
       {isRunning && (
         <Form.Description title="Timer" text="This timer is running. Stop it before changing its duration." />

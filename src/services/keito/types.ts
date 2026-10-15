@@ -31,8 +31,18 @@ export interface RawCurrentUser {
   roles?: string[];
   user_type?: string;
   is_active?: boolean;
-  company?: { id?: KeitoId | number; name?: string | null } | null;
-  // Present only on personal read-only sync key responses.
+  // Full-access responses include workspace settings on company (not in the public docs; observed live).
+  company?: {
+    id?: KeitoId | number;
+    name?: string | null;
+    timezone?: string | null;
+    manual_entry_format?: string | null;
+    require_notes?: boolean;
+    allow_past_timer_starts?: boolean;
+    time_rounding_description?: string | null;
+  } | null;
+  // Personal read-only sync keys return read capabilities and no company; full-access keys return
+  // capabilities such as can_track_time alongside the company.
   capabilities?: Record<string, boolean>;
 }
 
@@ -43,6 +53,7 @@ export interface RawProject {
   is_active?: boolean;
   client?: RawIdName | null;
   client_id?: KeitoId | number | null;
+  can_track_time?: boolean;
 }
 
 export interface RawTask {
@@ -112,6 +123,18 @@ export interface KeitoIdentity {
   companyName?: string;
   credentialType: CredentialType;
   features: string[];
+  settings: WorkspaceSettings;
+}
+
+export interface WorkspaceSettings {
+  /** IANA timezone used for spent dates and HH:mm times. */
+  timezone?: string;
+  /** Keito's manual entry format, e.g. "duration". */
+  manualEntryFormat?: string;
+  requireNotes: boolean;
+  /** undefined when Keito did not report the setting. */
+  allowPastTimerStarts?: boolean;
+  timeRoundingDescription?: string;
 }
 
 export interface Project {

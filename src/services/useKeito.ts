@@ -12,7 +12,6 @@ import {
   Toast,
 } from "@raycast/api";
 import { useCachedPromise, usePromise } from "@raycast/utils";
-import dayjs from "dayjs";
 import { useMemo } from "react";
 import { KeitoApi } from "./keito/api";
 import { validateCredentials } from "./keito/config";
@@ -20,13 +19,14 @@ import { errorMessage, errorTitle, isKeitoError } from "./keito/errors";
 import { formatHours as formatHoursValue, TimeFormat } from "./keito/normalize";
 import { invalidateSessionOnSetupError, KeyValueStore, resolveSession, ResolvedSession } from "./keito/session";
 import { Project, TimeEntry } from "./keito/types";
-import { EntryMode, WorkflowContext } from "./keito/workflows";
+import { WorkflowContext } from "./keito/workflows";
+import { EntryModePreference, todayIn } from "./keito/dates";
 
 export interface KeitoPreferences {
   token: string;
   accountID: string;
   timeFormat?: TimeFormat;
-  entryMode?: EntryMode;
+  entryMode?: EntryModePreference;
   titleDisplay?: "project" | "task";
   showClient?: boolean;
   showClientInProject?: boolean;
@@ -84,8 +84,9 @@ export async function getWorkflowContext(
   };
 }
 
-export function todayString(): string {
-  return dayjs().format("YYYY-MM-DD");
+/** Today's date in the Keito workspace timezone (falls back to the Mac's timezone). */
+export function todayString(session?: ResolvedSession): string {
+  return todayIn(session?.identity.settings?.timezone);
 }
 
 export function formatHours(hours: number | undefined): string {

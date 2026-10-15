@@ -33,9 +33,9 @@ export function sortEntries(entries: TimeEntry[], sortBy: SortBy): TimeEntry[] {
   });
 }
 
-function dayTitle(date: string): string {
+function dayTitle(date: string, todayDate: string): string {
   const day = dayjs(date);
-  const today = dayjs().startOf("day");
+  const today = dayjs(todayDate);
   if (day.isSame(today, "day")) return "Today's Timesheet";
   if (day.isSame(today.subtract(1, "day"), "day")) return "Yesterday's Timesheet";
   if (day.isSame(today.add(1, "day"), "day")) return "Tomorrow's Timesheet";
@@ -43,15 +43,15 @@ function dayTitle(date: string): string {
 }
 
 function Timesheet({ session }: { session: ResolvedSession }) {
-  const [date, setDate] = useState(todayString());
+  const [date, setDate] = useState(todayString(session));
   const { data, isLoading, revalidate } = useTimeEntries(session, date);
   const { byId } = useProjects(session.scope);
   const { sortBy = "updated-desc", titleDisplay = "project" } = getKeitoPreferences() as {
     sortBy?: SortBy;
     titleDisplay?: "project" | "task";
   };
-  const isToday = date === todayString();
-  const title = dayTitle(date);
+  const isToday = date === todayString(session);
+  const title = dayTitle(date, todayString(session));
 
   const entries = useMemo(
     () =>
@@ -123,7 +123,7 @@ function Timesheet({ session }: { session: ResolvedSession }) {
   }
 
   function changeDate(days: number | "today") {
-    setDate(days === "today" ? todayString() : dayjs(date).add(days, "day").format("YYYY-MM-DD"));
+    setDate(days === "today" ? todayString(session) : dayjs(date).add(days, "day").format("YYYY-MM-DD"));
   }
 
   const commonActions = (
@@ -239,7 +239,7 @@ function Timesheet({ session }: { session: ResolvedSession }) {
                             startTimer(ctx(), {
                               projectId: entry.projectId,
                               taskId: entry.taskId,
-                              spentDate: todayString(),
+                              spentDate: todayString(session),
                               notes: entry.notes || undefined,
                               externalReference: entry.externalReference,
                             })

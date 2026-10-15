@@ -194,10 +194,14 @@
       "name": "entryMode",
       "title": "Entry Fields",
       "required": false,
-      "description": "Enter a duration, or start and end times (HH:mm in the Keito workspace timezone).",
+      "description": "Duration, or start and end times (HH:mm in the Keito workspace timezone). Company Default follows Keito's manual entry format.",
       "type": "dropdown",
-      "default": "duration",
+      "default": "company",
       "data": [
+        {
+          "title": "Company Default",
+          "value": "company"
+        },
         {
           "title": "Duration",
           "value": "duration"
@@ -248,7 +252,8 @@
     "lint": "ray lint",
     "publish": "npm run test:run && npx @raycast/api@latest publish",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:live": "node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.live.config.ts"
   },
   "packageManager": "npm@11.15.0"
 }

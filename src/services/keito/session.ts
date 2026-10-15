@@ -42,7 +42,9 @@ async function readSession(store: KeyValueStore): Promise<StoredSession | undefi
   if (!raw) return undefined;
   try {
     const parsed = JSON.parse(raw) as StoredSession;
-    if (parsed?.fingerprint && parsed.identity?.userId && parsed.identity?.companyId) return parsed;
+    // Sessions saved before workspace settings were read are re-verified.
+    if (parsed?.fingerprint && parsed.identity?.userId && parsed.identity?.companyId && parsed.identity.settings)
+      return parsed;
   } catch {
     // fall through and treat as missing
   }

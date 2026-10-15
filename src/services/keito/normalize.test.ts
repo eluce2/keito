@@ -28,6 +28,7 @@ describe("identity (onboarding)", () => {
       companyName: "Acme Consulting",
       credentialType: "full_access",
       features: ["timer-stop"],
+      settings: { requireNotes: false },
     });
   });
 

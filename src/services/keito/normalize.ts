@@ -30,6 +30,12 @@ function optionalText(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+/** Keito documents HH:mm but returns HH:mm:ss; keep HH:mm so edits compare and send the documented form. */
+function toClock(value: unknown): string | undefined {
+  const match = typeof value === "string" ? value.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/) : null;
+  return match ? `${match[1].padStart(2, "0")}:${match[2]}` : optionalText(value);
+}
+
 const APPROVAL_STATUSES: ApprovalStatus[] = ["unsubmitted", "submitted", "approved", "rejected"];
 
 /**
@@ -68,6 +74,14 @@ export function normalizeIdentity(
     );
   }
 
+  if (raw.capabilities?.can_track_time === false) {
+    throw new KeitoError(
+      "tracking_not_allowed",
+      "Your Keito identity is not allowed to track time in this company. Ask a Keito Administrator to check your role, or to bind the key to the person whose time you track."
+    );
+  }
+
+  const company = raw.company ?? {};
   return {
     userId,
     name,
@@ -78,12 +92,21 @@ export function normalizeIdentity(
     companyName: optionalText(raw.company?.name),
     credentialType: "full_access",
     features,
+    settings: {
+      timezone: optionalText(company.timezone),
+      manualEntryFormat: optionalText(company.manual_entry_format),
+      requireNotes: company.require_notes === true,
+      allowPastTimerStarts:
+        typeof company.allow_past_timer_starts === "boolean" ? company.allow_past_timer_starts : undefined,
+      timeRoundingDescription: optionalText(company.time_rounding_description),
+    },
   };
 }
 
+/** Projects the identity cannot track time on (can_track_time: false) are dropped. */
 export function normalizeProject(raw: RawProject): Project | undefined {
   const id = toId(raw?.id);
-  if (!id) return undefined;
+  if (!id || raw.can_track_time === false) return undefined;
   return {
     id,
     name: optionalText(raw.name) ?? "Untitled project",
@@ -169,8 +192,8 @@ export function normalizeTimeEntry(raw: RawTimeEntry, lookup: NameLookup = {}): 
     notes: typeof raw.notes === "string" ? raw.notes : "",
     isRunning: raw.is_running === true,
     timerStartedAt: optionalText(raw.timer_started_at),
-    startedTime: optionalText(raw.started_time),
-    endedTime: optionalText(raw.ended_time),
+    startedTime: toClock(raw.started_time),
+    endedTime: toClock(raw.ended_time),
     isLocked: raw.is_locked === true,
     lockedReason: optionalText(raw.locked_reason),
     isClosed: raw.is_closed === true,

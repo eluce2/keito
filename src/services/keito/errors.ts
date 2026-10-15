@@ -8,6 +8,7 @@ export type KeitoErrorKind =
   | "invalid_credentials"
   | "read_only_key"
   | "company_mismatch"
+  | "tracking_not_allowed"
   | "forbidden"
   | "not_found"
   | "running_timer_conflict"
@@ -55,6 +56,7 @@ export class KeitoError extends Error {
       "invalid_credentials",
       "read_only_key",
       "company_mismatch",
+      "tracking_not_allowed",
     ].includes(this.kind);
   }
 }
@@ -86,7 +88,9 @@ export function errorFromResponse(status: number, body: unknown, retryAfterSecon
   if (status === 401) {
     return new KeitoError(
       "invalid_credentials",
-      "Keito rejected the API key. Check the Keito Integration API Key in the extension preferences, or ask your administrator whether it was revoked or rotated.",
+      /company/i.test(serverMessage ?? "")
+        ? "Keito rejected the API key or Company ID. Check both in the extension preferences; the Company ID is in Settings → API & Developers. The key may also have been revoked or rotated."
+        : "Keito rejected the API key. Check the Keito Integration API Key in the extension preferences, or ask your administrator whether it was revoked or rotated.",
       details
     );
   }
@@ -161,6 +165,8 @@ export function errorTitle(error: unknown): string {
       return "Full-Access Key Required";
     case "company_mismatch":
       return "Company ID Mismatch";
+    case "tracking_not_allowed":
+      return "Time Tracking Not Allowed";
     case "forbidden":
       return "Not Allowed";
     case "not_found":

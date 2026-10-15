@@ -5,7 +5,8 @@ import { describeEntry, getWorkflowContext, refreshMenuBar, showKeitoError, toda
 export default async function main() {
   const toast = await showToast({ style: Toast.Style.Animated, title: "Toggling timer…" });
   try {
-    const result = await toggleTimer(await getWorkflowContext(), todayString());
+    const ctx = await getWorkflowContext();
+    const result = await toggleTimer(ctx, todayString(ctx.session));
     await toast.hide();
     await refreshMenuBar();
     if (result.action === "stopped") await showHUD(`Timer stopped: ${describeEntry(result.entry)}`);

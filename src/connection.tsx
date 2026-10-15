@@ -189,6 +189,35 @@ export default function Command() {
                     <List.Item.Detail.Metadata.Label title="Credential" text="Full-access integration key" />
                     <List.Item.Detail.Metadata.Separator />
                     <List.Item.Detail.Metadata.Label
+                      title="Workspace timezone"
+                      text={identity.settings.timezone ?? "Not reported (using this Mac's timezone)"}
+                    />
+                    <List.Item.Detail.Metadata.Label
+                      title="Entry format"
+                      text={identity.settings.manualEntryFormat ?? "Not reported"}
+                    />
+                    <List.Item.Detail.Metadata.Label
+                      title="Notes required"
+                      text={identity.settings.requireNotes ? "Yes" : "No"}
+                    />
+                    <List.Item.Detail.Metadata.Label
+                      title="Past timer starts"
+                      text={
+                        identity.settings.allowPastTimerStarts === undefined
+                          ? "Not reported"
+                          : identity.settings.allowPastTimerStarts
+                          ? "Allowed"
+                          : "Not allowed"
+                      }
+                    />
+                    {identity.settings.timeRoundingDescription && (
+                      <List.Item.Detail.Metadata.Label
+                        title="Rounding"
+                        text={identity.settings.timeRoundingDescription}
+                      />
+                    )}
+                    <List.Item.Detail.Metadata.Separator />
+                    <List.Item.Detail.Metadata.Label
                       title="Keito features"
                       text={identity.features.join(", ") || "Not reported"}
                     />

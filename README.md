@@ -24,6 +24,8 @@ After entering the values, run **Keito Connection**. It checks, in order:
 3. You can see at least one active project.
 4. You can read tasks for a project. This confirms a full-access key.
 
+It also shows the workspace settings that `/users/me` reports: timezone, entry format, required notes, past timer starts, and rounding. The extension uses them in several places. **Today** is the date in the workspace timezone, not your Mac's. The default entry fields follow the company format. Notes are required when the workspace requires them. Projects where you can't track time are hidden.
+
 Every other command runs the same identity check first. If the key is missing, malformed, revoked, read-only, or for another company, the command shows the reason and a shortcut to the preferences instead of a broken view.
 
 Credentials stay in Raycast's preferences. They are sent only to `https://app.keito.ai/api/v2`, only in the `Authorization` and `Keito-Account-Id` headers. They never appear in URLs, logs, toasts, or the status file. Pagination links are followed only on that origin and path.
@@ -64,7 +66,7 @@ The verified identity is cached locally and re-checked every 6 hours and wheneve
 | Preference | Notes |
 | --- | --- |
 | Time Format | `1:30` or `1.50`. Keito's API exposes no company display settings, so this is a local choice. |
-| Entry Fields | **Duration** (default), or **Start and End Times**. Times are `HH:mm` in the Keito workspace timezone. A new timer with a past start time requires Keito's *Past timer starts* company setting. |
+| Entry Fields | **Company Default** follows Keito's manual entry format. You can also choose **Duration** or **Start and End Times** (`HH:mm` in the workspace timezone). If the workspace disallows past timer starts, the form says so before sending. |
 | Title Field, client options | Inherited display options. |
 | Sort By (Timesheet) | Updated or created time. |
 | Status Folder (Menu bar) | See below. |
@@ -94,7 +96,8 @@ If you set **Status Folder** on the Running Timer command, the menu bar writes `
 
 ## Limitations
 
-- **"Today" uses your Mac's local date.** Keito interprets dates and `HH:mm` times in the workspace timezone. If the two differ, entries can land on a different day than you expect.
+- Workspace settings (timezone, entry format, required notes, past timer starts) come from fields in `GET /users/me` that work live but are not in Keito's public docs. If Keito stops returning them, the extension uses the Mac's date and doesn't enforce those rules locally. Keito still enforces them on the server.
+- Keito documents `started_time`/`ended_time` as `HH:mm`, but the live API returns `HH:mm:ss`. The extension reads either and always sends `HH:mm`.
 - Durations show the `hours` value Keito returns, which is refreshed on each load. The menu bar refreshes every minute.
 - **Open Keito** opens `https://app.keito.ai`, or an installed app named "Keito" if one exists. Keito does not document deep links.
 - The extension icon is a neutral placeholder, not Keito's official logo. The command icons are inherited generic glyphs.
@@ -120,7 +123,9 @@ npm run lint       # ESLint, Prettier, manifest validation
 npm run dev        # register the extension in Raycast
 ```
 
-The tests use scripted API responses. They cover onboarding errors (missing, malformed, revoked, read-only, and wrong-company credentials), credential changes, pagination with relative links and the origin guard, string IDs, task/project context, timer conflicts, approval and lock state, retries, the entry form logic, favorites, and the status file. **They do not prove the extension works against the live Keito API.**
+`npm run test:live` runs **read-only** checks against the real API. It uses `KEITO_API_KEY` and `KEITO_ACCOUNT_ID` from a git-ignored `.env.local`, loaded with Node's `--env-file`. It verifies identity, both bad-credential responses, project pagination, tasks, and time-entry shapes. It prints only field names, counts, and statuses.
+
+The unit tests use scripted API responses. They cover onboarding errors (missing, malformed, revoked, read-only, and wrong-company credentials), credential changes, pagination with relative links and the origin guard, string IDs, task/project context, timer conflicts, approval and lock state, retries, the entry form logic, favorites, and the status file. **They do not prove the extension works against the live Keito API.**
 
 ## Live acceptance checklist
 

@@ -91,7 +91,7 @@ function Favorites({ session }: { session: ResolvedSession }) {
         await api.createTimeEntry({
           project_id: favorite.projectId,
           task_id: favorite.taskId,
-          spent_date: todayString(),
+          spent_date: todayString(session),
           hours: Number(favorite.hours),
           notes: favorite.notes,
           source: "api",
@@ -99,7 +99,12 @@ function Favorites({ session }: { session: ResolvedSession }) {
       } else {
         const result = await startTimer(
           { api, userId: session.identity.userId, confirmReplace: confirmReplaceRunning },
-          { projectId: favorite.projectId, taskId: favorite.taskId, spentDate: todayString(), notes: favorite.notes }
+          {
+            projectId: favorite.projectId,
+            taskId: favorite.taskId,
+            spentDate: todayString(session),
+            notes: favorite.notes,
+          }
         );
         if (result.status === "cancelled") {
           await toast.hide();

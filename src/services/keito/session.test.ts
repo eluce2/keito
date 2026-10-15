@@ -18,6 +18,7 @@ const identity = (userId: string, companyId = TEST_ACCOUNT): KeitoIdentity => ({
   companyId,
   credentialType: "full_access",
   features: [],
+  settings: { requireNotes: false },
 });
 
 const creds = { token: TEST_TOKEN, accountId: TEST_ACCOUNT };

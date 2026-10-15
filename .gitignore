@@ -17,3 +17,7 @@ compiled_raycast_swift
 
 # build output
 /dist
+.env.local
+
+# local credentials for live tests
+.env*

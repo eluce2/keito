@@ -43,7 +43,7 @@ export default function MenuBar() {
   } = usePromise(() => getSession(), [], {
     onError: () => undefined,
   });
-  const today = todayString();
+  const today = todayString(session);
   const { data, isLoading, error, revalidate } = useCachedPromise(
     loadSnapshot,
     [session?.scope ?? "", session?.identity.userId ?? "", today],

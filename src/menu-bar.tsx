@@ -1,80 +1,138 @@
+import { Color, getPreferenceValues, Icon, launchCommand, LaunchType, MenuBarExtra, open, showHUD } from "@raycast/api";
+import { useCachedPromise, usePromise } from "@raycast/utils";
+import dayjs from "dayjs";
 import { useEffect } from "react";
-import { LaunchType, MenuBarExtra, getPreferenceValues, launchCommand } from "@raycast/api";
-import { formatHours, useCompany, useMyTimeEntries } from "./services/harvest";
-import { HarvestTimeEntry } from "./services/responseTypes";
-import { writeFileSync, rmSync, existsSync, mkdirSync } from "fs";
+import { KEITO_WEB_URL } from "./services/keito/config";
+import { errorMessage, errorTitle } from "./services/keito/errors";
+import { syncStatusFile } from "./services/keito/statusFile";
+import { TimeEntry } from "./services/keito/types";
+import { describeEntry, formatHours, getApi, getSession, showKeitoError, todayString } from "./services/useKeito";
+
+interface MenuBarPreferences {
+  showTimerInMenuBar?: boolean;
+  statusFolder?: string;
+}
+
+interface Snapshot {
+  running: TimeEntry | null;
+  todayHours: number;
+}
+
+// `scope` is part of the arguments so cached snapshots are kept per company and identity.
+async function loadSnapshot(scope: string, userId: string, today: string): Promise<Snapshot> {
+  if (!scope) return { running: null, todayHours: 0 };
+  const api = getApi();
+  const [running, todays] = await Promise.all([
+    api.listRunningEntries(userId),
+    api.listTimeEntries({ userId, from: today, to: today }),
+  ]);
+  return { running: running[0] ?? null, todayHours: todays.reduce((sum, e) => sum + e.hours, 0) };
+}
+
+function launch(name: string) {
+  return launchCommand({ name, type: LaunchType.UserInitiated });
+}
 
 export default function MenuBar() {
-  const { data, isLoading: dataLoading } = useMyTimeEntries(null);
-  const { data: company, isLoading: companyLoading } = useCompany();
+  const { showTimerInMenuBar = true, statusFolder } = getPreferenceValues<MenuBarPreferences>();
+  const {
+    data: session,
+    error: sessionError,
+    isLoading: sessionLoading,
+    revalidate: revalidateSession,
+  } = usePromise(() => getSession(), [], {
+    onError: () => undefined,
+  });
+  const today = todayString();
+  const { data, isLoading, error, revalidate } = useCachedPromise(
+    loadSnapshot,
+    [session?.scope ?? "", session?.identity.userId ?? "", today],
+    { execute: !!session, keepPreviousData: true, onError: () => undefined }
+  );
 
-  const runningTimer = data.find((o) => o.is_running);
-
-  const { showTimerInMenuBar = true } = getPreferenceValues<{
-    showTimerInMenuBar?: boolean;
-    statusFolder?: string;
-  }>();
-
-  const isLoading = dataLoading;
+  const running = data?.running ?? null;
 
   useEffect(() => {
-    setStatusFile(runningTimer ?? null);
-  }, [runningTimer]);
+    if (!session || isLoading || error) return;
+    try {
+      syncStatusFile(statusFolder, running, session.identity.companyId);
+    } catch (fileError) {
+      console.error("Could not update the status file", fileError instanceof Error ? fileError.message : fileError);
+    }
+  }, [running?.id, running?.hours, running?.notes, session?.scope, isLoading, error]);
 
-  if (!runningTimer)
+  const problem = sessionError ?? error;
+  if (problem) {
     return (
       <MenuBarExtra
-        icon={{ source: runningTimer ? "../assets/harvest-logo-icon.png" : "../assets/harvest-logo-icon-gray.png" }}
-        isLoading={isLoading}
+        icon={{ source: Icon.Clock, tintColor: Color.SecondaryText }}
+        isLoading={sessionLoading || isLoading}
+        tooltip="Keito"
       >
-        <MenuBarExtra.Item title="No Timer Running" />
+        <MenuBarExtra.Item title={errorTitle(problem)} subtitle={errorMessage(problem).slice(0, 80)} />
+        <MenuBarExtra.Item title="Open Keito Connection…" icon={Icon.Key} onAction={() => launch("connection")} />
         <MenuBarExtra.Item
-          title="View Timesheet"
-          onAction={() => {
-            launchCommand({ extensionName: "keito", name: "listTimeEntries", type: LaunchType.UserInitiated });
-          }}
+          title="Retry"
+          icon={Icon.ArrowClockwise}
+          onAction={() => (sessionError ? revalidateSession() : revalidate())}
         />
       </MenuBarExtra>
     );
+  }
 
   return (
     <MenuBarExtra
-      icon={{ source: "../assets/harvest-logo-icon.png" }}
-      title={showTimerInMenuBar ? formatHours(runningTimer.hours.toString(), company) : undefined}
-      isLoading={isLoading || companyLoading}
+      icon={running ? { source: Icon.Clock, tintColor: Color.Orange } : Icon.Clock}
+      title={running && showTimerInMenuBar ? formatHours(running.hours) : undefined}
+      tooltip={running ? `Keito: ${describeEntry(running)}` : "Keito: no timer running"}
+      isLoading={sessionLoading || isLoading}
     >
-      <MenuBarExtra.Item title={`${runningTimer.project.name} - ${runningTimer.task.name}`} />
-      {runningTimer.notes && runningTimer.notes.length > 0 && <MenuBarExtra.Item title={`${runningTimer.notes}`} />}
-
-      <MenuBarExtra.Item
-        title="View Timesheet"
-        onAction={() => {
-          launchCommand({ extensionName: "keito", name: "listTimeEntries", type: LaunchType.UserInitiated });
-        }}
-      />
-      {runningTimer && (
-        <MenuBarExtra.Section>
+      {running ? (
+        <MenuBarExtra.Section title="Running Timer">
+          <MenuBarExtra.Item title={describeEntry(running)} subtitle={running.clientName} />
+          {running.notes && <MenuBarExtra.Item title={running.notes.slice(0, 80)} />}
+          <MenuBarExtra.Item
+            title={`${formatHours(running.hours)}${
+              running.timerStartedAt ? ` since ${dayjs(running.timerStartedAt).format("HH:mm")}` : ""
+            }`}
+            icon={Icon.Clock}
+          />
           <MenuBarExtra.Item
             title="Stop Timer"
+            icon={Icon.Stop}
+            shortcut={{ modifiers: ["cmd"], key: "s" }}
             onAction={async () => {
-              await launchCommand({ extensionName: "keito", name: "stopTimer", type: LaunchType.UserInitiated });
+              try {
+                await getApi().stopTimeEntry(running.id);
+                await showHUD(`Timer stopped: ${describeEntry(running)}`);
+                revalidate();
+              } catch (stopError) {
+                await showKeitoError(stopError, "Could not stop the timer");
+              }
             }}
           />
         </MenuBarExtra.Section>
+      ) : (
+        <MenuBarExtra.Section>
+          <MenuBarExtra.Item title="No Timer Running" />
+          <MenuBarExtra.Item title="Restart Last Timer" icon={Icon.Play} onAction={() => launch("toggleTimer")} />
+        </MenuBarExtra.Section>
       )}
+      <MenuBarExtra.Section>
+        <MenuBarExtra.Item title={`Today: ${formatHours(data?.todayHours ?? 0)}`} />
+        <MenuBarExtra.Item title="View Timesheet" icon={Icon.List} onAction={() => launch("listTimeEntries")} />
+        <MenuBarExtra.Item title="New Time Entry" icon={Icon.Plus} onAction={() => launch("new")} />
+        <MenuBarExtra.Item title="Favorites" icon={Icon.Star} onAction={() => launch("listFavorites")} />
+      </MenuBarExtra.Section>
+      <MenuBarExtra.Section>
+        <MenuBarExtra.Item
+          title="Refresh"
+          icon={Icon.ArrowClockwise}
+          shortcut={{ modifiers: ["cmd"], key: "r" }}
+          onAction={() => revalidate()}
+        />
+        <MenuBarExtra.Item title="Open Keito" icon={Icon.Globe} onAction={() => open(KEITO_WEB_URL)} />
+      </MenuBarExtra.Section>
     </MenuBarExtra>
   );
-}
-
-function setStatusFile(timeEntry: HarvestTimeEntry | null) {
-  const { statusFolder } = getPreferenceValues<{ statusFolder?: string }>();
-  if (!statusFolder) return;
-  if (!existsSync(statusFolder)) mkdirSync(statusFolder);
-  const statusFile = `${statusFolder}/currentTimer.json`;
-
-  if (timeEntry) {
-    writeFileSync(statusFile, JSON.stringify(timeEntry));
-  } else {
-    if (existsSync(statusFile)) rmSync(statusFile);
-  }
 }

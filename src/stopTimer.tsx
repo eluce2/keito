@@ -1,19 +1,16 @@
-import { showToast, Toast, showHUD } from "@raycast/api";
-import { stopTimer } from "./services/harvest";
+import { showHUD, showToast, Toast } from "@raycast/api";
+import { stopRunningTimers } from "./services/keito/workflows";
+import { describeEntry, getWorkflowContext, refreshMenuBar, showKeitoError } from "./services/useKeito";
 
 export default async function main() {
-  const toast = await showToast({ style: Toast.Style.Animated, title: "Loading..." });
-  await toast.show();
-  await stopTimer().catch(async (error) => {
-    console.error(error.response.data);
+  const toast = await showToast({ style: Toast.Style.Animated, title: "Stopping timer…" });
+  try {
+    const stopped = await stopRunningTimers(await getWorkflowContext());
     await toast.hide();
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "API Error",
-      message: "Could not stop your timer",
-    });
-    return;
-  });
-  await toast.hide();
-  await showHUD("Timer stopped");
+    await refreshMenuBar();
+    await showHUD(stopped.length ? `Timer stopped: ${describeEntry(stopped[0])}` : "No timer was running");
+  } catch (error) {
+    await toast.hide();
+    await showKeitoError(error, "Could not stop your timer");
+  }
 }

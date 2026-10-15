@@ -32,6 +32,21 @@ function parseTimeOfDay(str: string): { hours: number; minutes: number } | null 
   return null;
 }
 
+// Parse a clock time for Keito's started_time/ended_time, returning 24h "HH:mm".
+// Supports the 12h forms above plus 24h "13:05", "9:30", "0930", and bare hours "9" or "17".
+export function parseClockTime(input: string): string | null {
+  const str = input.trim().toLowerCase();
+  if (!str) return null;
+
+  let time = parseTimeOfDay(str);
+  if (!time) {
+    const match = str.match(/^(\d{1,2})(?::?(\d{2}))?$/);
+    if (match) time = { hours: parseInt(match[1], 10), minutes: match[2] ? parseInt(match[2], 10) : 0 };
+  }
+  if (!time || time.hours > 23 || time.minutes > 59) return null;
+  return `${String(time.hours).padStart(2, "0")}:${String(time.minutes).padStart(2, "0")}`;
+}
+
 function parseSingleDuration(str: string): Duration | null {
   if (!str) return null;
 

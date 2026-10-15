@@ -1,291 +1,291 @@
-import {
-  Action,
-  ActionPanel,
-  Alert,
-  Application,
-  Color,
-  confirmAlert,
-  getApplications,
-  getPreferenceValues,
-  Icon,
-  List,
-  showToast,
-  Toast,
-} from "@raycast/api";
-import { useEffect, useMemo, useState } from "react";
-import {
-  deleteTimeEntry,
-  newTimeEntry,
-  refreshMenuBar,
-  restartTimer,
-  stopTimer,
-  useCompany,
-  formatHours,
-  useMyTimeEntries,
-} from "./services/harvest";
-import { HarvestTimeEntry } from "./services/responseTypes";
-import New from "./new";
-import { execSync } from "child_process";
-import { NewTimeEntryDuration, NewTimeEntryStartEnd } from "./services/requestTypes";
-import { sumBy } from "es-toolkit";
-
+import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, List, showHUD, showToast, Toast } from "@raycast/api";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import isToday from "dayjs/plugin/isToday";
-import isTomorrow from "dayjs/plugin/isTomorrow";
-import isYesterday from "dayjs/plugin/isYesterday";
-dayjs.extend(isToday);
-dayjs.extend(isTomorrow);
-dayjs.extend(isYesterday);
-dayjs.extend(relativeTime);
+import { useMemo, useState } from "react";
+import { KeitoGate } from "./components/KeitoGate";
+import { OpenKeitoAction } from "./components/OpenKeitoAction";
+import { approvalLabel, enrichEntry, entryEditability } from "./services/keito/normalize";
+import { ResolvedSession } from "./services/keito/session";
+import { TimeEntry } from "./services/keito/types";
+import { restartEntry, startTimer, StartResult } from "./services/keito/workflows";
+import {
+  confirmReplaceRunning,
+  formatHours,
+  getApi,
+  getKeitoPreferences,
+  refreshMenuBar,
+  showKeitoError,
+  todayString,
+  useProjects,
+  useTimeEntries,
+} from "./services/useKeito";
+import { EntryForm } from "./new";
 
-export interface Preferences {
-  sortBy: "updated-desc" | "updated-asc" | "created-desc" | "created-asc" | "none";
-  titleDisplay: "task" | "project";
+type SortBy = "updated-desc" | "updated-asc" | "created-desc" | "created-asc" | "none";
+
+export function sortEntries(entries: TimeEntry[], sortBy: SortBy): TimeEntry[] {
+  if (sortBy === "none") return entries;
+  const field = sortBy.startsWith("updated") ? "updatedAt" : "createdAt";
+  const direction = sortBy.endsWith("desc") ? -1 : 1;
+  return [...entries].sort((a, b) => {
+    const diff = Date.parse(a[field] ?? "") - Date.parse(b[field] ?? "");
+    if (diff === 0 || Number.isNaN(diff)) return a.isRunning === b.isRunning ? 0 : a.isRunning ? -1 : 1;
+    return diff * direction;
+  });
 }
 
-export default function Command() {
-  const [viewDate, setViewDate] = useState<Date | null>(null);
-  const { data: items, isLoading, revalidate } = useMyTimeEntries(viewDate);
+function dayTitle(date: string): string {
+  const day = dayjs(date);
+  const today = dayjs().startOf("day");
+  if (day.isSame(today, "day")) return "Today's Timesheet";
+  if (day.isSame(today.subtract(1, "day"), "day")) return "Yesterday's Timesheet";
+  if (day.isSame(today.add(1, "day"), "day")) return "Tomorrow's Timesheet";
+  return day.format("ddd, MMM D");
+}
 
-  const [navigationTitle, setNavigationTitle] = useState("Today's Timesheet");
-  const { data: company } = useCompany();
-  const { sortBy, titleDisplay }: Preferences = getPreferenceValues();
+function Timesheet({ session }: { session: ResolvedSession }) {
+  const [date, setDate] = useState(todayString());
+  const { data, isLoading, revalidate } = useTimeEntries(session, date);
+  const { byId } = useProjects(session.scope);
+  const { sortBy = "updated-desc", titleDisplay = "project" } = getKeitoPreferences() as {
+    sortBy?: SortBy;
+    titleDisplay?: "project" | "task";
+  };
+  const isToday = date === todayString();
+  const title = dayTitle(date);
 
-  const timeEntries = useMemo(() => {
-    const timeEntries: HarvestTimeEntry[] = items;
-    switch (sortBy) {
-      case "updated-desc": {
-        timeEntries.sort((a, b) => {
-          if (dayjs(a.updated_at).isSame(dayjs(b.updated_at))) {
-            return b.is_running ? 1 : -1;
-          }
-          return dayjs(a.updated_at).isAfter(dayjs(b.updated_at)) ? -1 : 1;
-        });
-        break;
-      }
-      case "created-desc": {
-        timeEntries.sort((a, b) => {
-          if (dayjs(a.created_at).isSame(dayjs(b.created_at))) {
-            return b.is_running ? 1 : -1;
-          }
-          return dayjs(a.created_at).isAfter(dayjs(b.created_at)) ? -1 : 1;
-        });
-        break;
-      }
-      case "updated-asc": {
-        timeEntries.sort((a, b) => {
-          if (dayjs(a.updated_at).isSame(dayjs(b.updated_at))) {
-            return b.is_running ? 1 : -1;
-          }
-          return dayjs(a.updated_at).isAfter(dayjs(b.updated_at)) ? 1 : -1;
-        });
-        break;
-      }
-      case "created-asc": {
-        timeEntries.sort((a, b) => {
-          if (dayjs(a.created_at).isSame(dayjs(b.created_at))) {
-            return b.is_running ? 1 : -1;
-          }
-          return dayjs(a.created_at).isAfter(dayjs(b.created_at)) ? 1 : -1;
-        });
-        break;
-      }
-    }
+  const entries = useMemo(
+    () =>
+      sortEntries(
+        data.map((e) => enrichEntry(e, byId)),
+        sortBy
+      ),
+    [data, byId, sortBy]
+  );
+  const total = useMemo(() => entries.reduce((sum, e) => sum + e.hours, 0), [entries]);
 
-    return timeEntries;
-  }, [items]);
-
-  const navSubtitle = useMemo(() => {
-    const dayTotal = sumBy(items, (o) => o.hours)?.toFixed(2) ?? "";
-    return formatHours(dayTotal, company);
-  }, [items, company]);
-
-  async function changeViewDate(date: Date) {
-    if (dayjs(date).isToday()) {
-      setNavigationTitle("Today's Timesheet");
-    } else if (dayjs(date).isTomorrow()) {
-      setNavigationTitle("Tomorrow's Timesheet");
-    } else if (dayjs(date).isYesterday()) {
-      setNavigationTitle("Yesterday's Timesheet");
-    } else {
-      setNavigationTitle(dayjs(date).format("ddd, MMM D"));
-    }
-    setViewDate(date);
+  async function afterChange() {
+    revalidate();
+    await refreshMenuBar();
   }
 
-  function ToggleTimerAction({ entry, onComplete }: { entry: HarvestTimeEntry; onComplete: () => Promise<void> }) {
-    const param: NewTimeEntryDuration | NewTimeEntryStartEnd = {
-      project_id: entry.project.id,
-      task_id: entry.task.id,
-      spent_date: entry.spent_date,
-      notes: entry.notes,
-    };
-    if (entry.external_reference) {
-      param.external_reference = entry.external_reference;
+  const ctx = () => ({
+    api: getApi(),
+    userId: session.identity.userId,
+    lookup: { projects: byId },
+    confirmReplace: confirmReplaceRunning,
+  });
+
+  async function runStart(label: string, start: () => Promise<StartResult>) {
+    const toast = await showToast({ style: Toast.Style.Animated, title: label });
+    try {
+      const result = await start();
+      await toast.hide();
+      if (result.status === "started") await showHUD(result.replaced ? "Switched Timer" : "Timer Started");
+      await afterChange();
+      return result;
+    } catch (error) {
+      await toast.hide();
+      await showKeitoError(error, "Could not start the timer");
     }
-
-    async function startOrStopTimer() {
-      const toast = new Toast({ style: Toast.Style.Animated, title: "Loading..." });
-      await toast.show();
-      try {
-        if (entry.is_running) {
-          await stopTimer(entry);
-        } else {
-          await restartTimer(entry);
-        }
-        await toast.hide();
-      } catch {
-        await showToast(Toast.Style.Failure, "Error", `Could not ${entry.is_running ? "stop" : "start"} your timer`);
-      }
-      revalidate();
-      await onComplete();
-    }
-
-    return dayjs(viewDate ?? undefined).isToday() ? (
-      <Action title={entry.is_running ? "Stop Timer" : "Start Timer"} icon={Icon.Clock} onAction={startOrStopTimer} />
-    ) : (
-      <>
-        <Action
-          title="Start on Today"
-          icon={Icon.Calendar}
-          onAction={async () => {
-            // make sure no other timer is running
-            const toast = new Toast({ style: Toast.Style.Animated, title: "Loading..." });
-            await toast.show();
-            await stopTimer();
-
-            param.spent_date = dayjs().format("YYYY-MM-DD");
-            await newTimeEntry(param);
-            await changeViewDate(new Date());
-            revalidate();
-            await toast.hide();
-          }}
-        />
-        <Action
-          title={entry.is_running ? "Stop Timer" : `Start on ${dayjs(viewDate).format("dddd")}`}
-          icon={Icon.Clock}
-          onAction={async () => {
-            // make sure no other timer is running
-            await stopTimer();
-            // then toggle the selected timer
-            await startOrStopTimer();
-          }}
-        />
-      </>
-    );
   }
 
-  function SwitchViewDateActions() {
-    return (
-      <>
+  async function stop(entry: TimeEntry) {
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Stopping timer…" });
+    try {
+      await getApi().stopTimeEntry(entry.id);
+      await toast.hide();
+      await showHUD("Timer Stopped");
+      await afterChange();
+    } catch (error) {
+      await toast.hide();
+      await showKeitoError(error, "Could not stop the timer");
+    }
+  }
+
+  async function remove(entry: TimeEntry) {
+    const confirmed = await confirmAlert({
+      title: "Delete Time Entry?",
+      message: `${entry.projectName} – ${entry.taskName}, ${formatHours(entry.hours)}. This cannot be undone.`,
+      icon: Icon.Trash,
+      primaryAction: { title: "Delete", style: Alert.ActionStyle.Destructive },
+    });
+    if (!confirmed) return;
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Deleting…" });
+    try {
+      await getApi().deleteTimeEntry(entry.id);
+      toast.style = Toast.Style.Success;
+      toast.title = "Time entry deleted";
+      await afterChange();
+    } catch (error) {
+      await toast.hide();
+      await showKeitoError(error, "Could not delete the time entry");
+    }
+  }
+
+  function changeDate(days: number | "today") {
+    setDate(days === "today" ? todayString() : dayjs(date).add(days, "day").format("YYYY-MM-DD"));
+  }
+
+  const commonActions = (
+    <>
+      <ActionPanel.Section title="Keito">
+        <Action.Push
+          title="New Time Entry"
+          icon={Icon.Plus}
+          shortcut={{ key: "n", modifiers: ["cmd"] }}
+          target={<EntryForm session={session} viewDate={dayjs(date).toDate()} onSave={afterChange} />}
+        />
+        <Action
+          title="Refresh"
+          icon={Icon.ArrowClockwise}
+          shortcut={{ key: "r", modifiers: ["cmd"] }}
+          onAction={afterChange}
+        />
+        <OpenKeitoAction />
+      </ActionPanel.Section>
+      <ActionPanel.Section title="Change Dates">
         <Action
           title="Previous Day"
           icon={Icon.ArrowLeft}
           shortcut={{ key: "arrowLeft", modifiers: ["cmd"] }}
-          onAction={() => {
-            changeViewDate(
-              dayjs(viewDate ?? undefined)
-                .subtract(1, "d")
-                .toDate()
-            );
-          }}
+          onAction={() => changeDate(-1)}
         />
         <Action
           title="Next Day"
           icon={Icon.ArrowRight}
           shortcut={{ key: "arrowRight", modifiers: ["cmd"] }}
-          onAction={() => {
-            changeViewDate(
-              dayjs(viewDate ?? undefined)
-                .add(1, "d")
-                .toDate()
-            );
-          }}
+          onAction={() => changeDate(1)}
         />
-        {!dayjs(viewDate).isToday() && (
+        {!isToday && (
           <Action
             title="Back to Today"
             icon={Icon.Calendar}
             shortcut={{ key: "t", modifiers: ["cmd"] }}
-            onAction={() => {
-              changeViewDate(new Date());
-            }}
+            onAction={() => changeDate("today")}
           />
         )}
-      </>
-    );
-  }
-
-  const init = async () => {
-    await refreshMenuBar();
-    revalidate();
-  };
+      </ActionPanel.Section>
+    </>
+  );
 
   return (
     <List
-      searchBarPlaceholder="Filter Time Entries"
+      searchBarPlaceholder="Filter time entries"
       isLoading={isLoading}
-      navigationTitle={navigationTitle}
-      actions={
-        <ActionPanel>
-          <ActionPanel.Section title="Harvest">
-            <NewEntryAction onSave={init} viewDate={viewDate} />
-            <OpenHarvestAppAction />
-          </ActionPanel.Section>
-          <ActionPanel.Section title="Change Dates">
-            <SwitchViewDateActions />
-          </ActionPanel.Section>
-        </ActionPanel>
-      }
+      navigationTitle={title}
+      actions={<ActionPanel>{commonActions}</ActionPanel>}
     >
-      <List.Section title={`${navigationTitle}`} subtitle={navSubtitle}>
-        {timeEntries.map((entry) => {
+      <List.EmptyView
+        icon={Icon.Clock}
+        title={isLoading ? "Loading…" : "No time entries"}
+        description={isLoading ? undefined : "Press ⌘N to start a timer or log time. Use ⌘← and ⌘→ to change days."}
+      />
+      <List.Section title={title} subtitle={formatHours(total)}>
+        {entries.map((entry) => {
+          const lock = entryEditability(entry);
+          const approval = approvalLabel(entry.approvalStatus);
+          const other = titleDisplay === "task" ? entry.projectName : entry.taskName;
           return (
             <List.Item
-              id={entry.id.toString()}
+              id={entry.id}
               key={entry.id}
-              title={titleDisplay === "task" ? entry.task.name : entry.project.name}
+              title={titleDisplay === "task" ? entry.taskName : entry.projectName}
               subtitle={entry.notes}
               keywords={[
-                ...(entry.notes?.split(" ") ?? []),
-                ...(entry.client?.name?.split(" ") ?? []),
-                ...((titleDisplay === "task" ? entry.project?.name : entry.task?.name)?.split(" ") ?? []),
-              ]}
+                ...entry.notes.split(/\s+/),
+                ...(entry.clientName?.split(/\s+/) ?? []),
+                ...other.split(/\s+/),
+              ].filter(Boolean)}
               accessories={[
+                { text: other, icon: Icon.Tag },
+                ...(entry.clientName
+                  ? [
+                      {
+                        text: entry.clientName,
+                        icon: entry.externalReference?.serviceIconUrl
+                          ? { source: entry.externalReference.serviceIconUrl }
+                          : Icon.Building,
+                      },
+                    ]
+                  : []),
+                ...(approval
+                  ? [{ tag: { value: approval, color: entry.approvalStatus === "rejected" ? Color.Red : Color.Blue } }]
+                  : []),
+                ...(!lock.canEdit ? [{ icon: Icon.Lock, tooltip: lock.reason }] : []),
                 {
-                  text: titleDisplay === "task" ? entry.project.name : entry.task.name,
-                  icon: Icon.Tag,
-                },
-                {
-                  text: entry.client.name,
-                  icon: entry.external_reference
-                    ? { source: entry.external_reference.service_icon_url }
-                    : Icon.Building,
-                },
-                {
-                  icon: entry.is_running ? { tintColor: Color.Orange, source: Icon.Clock } : undefined,
-                  tag: {
-                    value: formatHours(entry.hours.toFixed(2), company),
-                    color: entry.is_running ? Color.Orange : Color.SecondaryText,
-                  },
+                  icon: entry.isRunning ? { source: Icon.Clock, tintColor: Color.Orange } : undefined,
+                  tag: { value: formatHours(entry.hours), color: entry.isRunning ? Color.Orange : Color.SecondaryText },
                 },
               ]}
               actions={
                 <ActionPanel>
-                  <ActionPanel.Section title={`${entry.project.name} | ${entry.client.name}`}>
-                    <ToggleTimerAction onComplete={init} entry={entry} />
-                    <EditEntryAction onSave={init} entry={entry} viewDate={viewDate} />
-                    <DuplicateEntryAction onSave={init} entry={entry} viewDate={viewDate} />
-                    <DeleteEntryAction onComplete={init} entry={entry} />
+                  <ActionPanel.Section
+                    title={`${entry.projectName}${entry.clientName ? ` | ${entry.clientName}` : ""}`}
+                  >
+                    {entry.isRunning && <Action title="Stop Timer" icon={Icon.Stop} onAction={() => stop(entry)} />}
+                    {!entry.isRunning && isToday && lock.canRestart && (
+                      <Action
+                        title="Restart Timer"
+                        icon={Icon.Play}
+                        onAction={() => runStart("Restarting timer…", () => restartEntry(ctx(), entry))}
+                      />
+                    )}
+                    {!isToday && (
+                      <Action
+                        title="Start on Today"
+                        icon={Icon.Calendar}
+                        onAction={async () => {
+                          const result = await runStart("Starting timer…", () =>
+                            startTimer(ctx(), {
+                              projectId: entry.projectId,
+                              taskId: entry.taskId,
+                              spentDate: todayString(),
+                              notes: entry.notes || undefined,
+                              externalReference: entry.externalReference,
+                            })
+                          );
+                          if (result?.status === "started") changeDate("today");
+                        }}
+                      />
+                    )}
+                    {lock.canEdit && (
+                      <Action.Push
+                        title="Edit Time Entry"
+                        icon={Icon.Pencil}
+                        shortcut={{ key: "e", modifiers: ["cmd"] }}
+                        target={<EntryForm session={session} entry={entry} onSave={afterChange} />}
+                      />
+                    )}
+                    <Action.Push
+                      title="Duplicate Time Entry"
+                      icon={Icon.Clipboard}
+                      shortcut={{ key: "d", modifiers: ["cmd"] }}
+                      target={
+                        <EntryForm
+                          session={session}
+                          template={entry}
+                          viewDate={dayjs(date).toDate()}
+                          onSave={afterChange}
+                        />
+                      }
+                    />
+                    {entry.externalReference?.permalink && (
+                      <Action.OpenInBrowser
+                        title={`Open ${entry.externalReference.serviceName ?? "Linked Item"}`}
+                        url={entry.externalReference.permalink}
+                      />
+                    )}
+                    {lock.canDelete && (
+                      <Action
+                        title="Delete Time Entry"
+                        icon={Icon.Trash}
+                        style={Action.Style.Destructive}
+                        shortcut={{ key: "x", modifiers: ["ctrl"] }}
+                        onAction={() => remove(entry)}
+                      />
+                    )}
                   </ActionPanel.Section>
-                  <ActionPanel.Section title="Harvest">
-                    <NewEntryAction onSave={init} viewDate={viewDate} />
-                    <OpenHarvestAppAction />
-                  </ActionPanel.Section>
-                  <ActionPanel.Section title="Change Dates">
-                    <SwitchViewDateActions />
-                  </ActionPanel.Section>
+                  {commonActions}
                 </ActionPanel>
               }
             />
@@ -296,143 +296,6 @@ export default function Command() {
   );
 }
 
-function NewEntryAction({
-  onSave = async () => {
-    return;
-  },
-  viewDate = new Date(),
-}: {
-  onSave: () => Promise<void>;
-  viewDate: Date | null;
-}) {
-  return (
-    <Action.Push
-      target={<New onSave={onSave} viewDate={viewDate} />}
-      title="New Time Entry"
-      shortcut={{ key: "n", modifiers: ["cmd"] }}
-      icon={Icon.Plus}
-    />
-  );
-}
-
-function EditEntryAction({
-  onSave = async () => {
-    return;
-  },
-  entry,
-  viewDate,
-}: {
-  onSave: () => Promise<void>;
-  entry: HarvestTimeEntry;
-  viewDate: Date | null;
-}) {
-  return (
-    <Action.Push
-      target={<New onSave={onSave} entry={entry} viewDate={viewDate} />}
-      title="Edit Time Entry"
-      shortcut={{ key: "e", modifiers: ["cmd"] }}
-      icon={Icon.Pencil}
-    />
-  );
-}
-
-function DuplicateEntryAction({
-  onSave = async () => {
-    return;
-  },
-  entry,
-  viewDate,
-}: {
-  onSave: () => Promise<void>;
-  entry: HarvestTimeEntry;
-  viewDate: Date | null;
-}) {
-  return (
-    <Action.Push
-      target={<New onSave={onSave} viewDate={viewDate} entry={{ ...entry, id: null }} />}
-      title="Duplicate Time Entry"
-      shortcut={{ key: "d", modifiers: ["cmd"] }}
-      icon={Icon.Clipboard}
-    />
-  );
-}
-
-function DeleteEntryAction({
-  onComplete = async () => {
-    return;
-  },
-  entry,
-}: {
-  onComplete: () => Promise<void>;
-  entry: HarvestTimeEntry;
-}) {
-  return (
-    <Action
-      onAction={async () => {
-        if (
-          await confirmAlert({
-            title: "Delete Time Entry",
-            message: "Are you sure? This cannot be undone",
-            icon: Icon.Trash,
-            primaryAction: {
-              title: "Delete",
-              style: Alert.ActionStyle.Destructive,
-            },
-          })
-        ) {
-          await deleteTimeEntry(entry);
-          await onComplete();
-        }
-      }}
-      title="Delete Time Entry"
-      shortcut={{ key: "x", modifiers: ["ctrl"] }}
-      icon={Icon.Trash}
-    />
-  );
-}
-
-function OpenHarvestAppAction() {
-  const [app, setApp] = useState<Application>();
-  const { data: company } = useCompany();
-
-  async function init() {
-    const installedApps = await getApplications();
-    const filteredApps = installedApps.filter((app) => {
-      return app.bundleId?.includes("com.getharvest.harvestxapp");
-    });
-
-    if (filteredApps.length) {
-      setApp(filteredApps[0]);
-    }
-  }
-
-  useEffect(() => {
-    init();
-  }, []);
-
-  if (!app) {
-    return (
-      <Action.OpenInBrowser
-        title="Open Harvest Website"
-        shortcut={{ key: "o", modifiers: ["cmd"] }}
-        icon={{ source: "./harvest-logo-icon.png" }}
-        url={company ? `${company.base_uri}/time/week` : "https://www.getharvest.com"}
-      />
-    );
-  }
-
-  return (
-    <Action
-      onAction={() => {
-        try {
-          execSync(`open ${app.path}`);
-        } catch {
-          showToast(Toast.Style.Failure, "Could not Open Harvest App");
-        }
-      }}
-      title="Open Harvest App"
-      shortcut={{ key: "o", modifiers: ["cmd"] }}
-      icon={{ source: "./harvest-logo-icon.png" }}
-    />
-  );
+export default function Command() {
+  return <KeitoGate>{(session) => <Timesheet session={session} />}</KeitoGate>;
 }

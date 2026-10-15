@@ -1,20 +1,18 @@
-import { showToast, Toast, showHUD } from "@raycast/api";
-import { isAxiosError, toggleTimer } from "./services/harvest";
+import { showHUD, showToast, Toast } from "@raycast/api";
+import { toggleTimer } from "./services/keito/workflows";
+import { describeEntry, getWorkflowContext, refreshMenuBar, showKeitoError, todayString } from "./services/useKeito";
 
 export default async function main() {
-  const toast = await showToast({ style: Toast.Style.Animated, title: "Loading..." });
-  await toast.show();
+  const toast = await showToast({ style: Toast.Style.Animated, title: "Toggling timer…" });
   try {
-    const result = await toggleTimer();
+    const result = await toggleTimer(await getWorkflowContext(), todayString());
     await toast.hide();
-    await showHUD(`Timer ${result.action}`);
+    await refreshMenuBar();
+    if (result.action === "stopped") await showHUD(`Timer stopped: ${describeEntry(result.entry)}`);
+    else if (result.action === "restarted") await showHUD(`Timer restarted: ${describeEntry(result.entry)}`);
+    else await showHUD(`Nothing to toggle. ${result.reason}`);
   } catch (error) {
-    isAxiosError(error) ? console.error(error.response?.data) : console.error(error);
     await toast.hide();
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "API Error",
-      message: "Could not toggle your timer",
-    });
+    await showKeitoError(error, "Could not toggle your timer");
   }
 }

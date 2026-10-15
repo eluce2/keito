@@ -1,296 +1,310 @@
 import {
-  Form,
-  ActionPanel,
-  showToast,
-  Toast,
-  showHUD,
-  useNavigation,
   Action,
+  ActionPanel,
   Alert,
   confirmAlert,
+  Form,
   Icon,
-  getPreferenceValues,
+  showHUD,
+  showToast,
+  Toast,
+  useNavigation,
 } from "@raycast/api";
 import { useLocalStorage } from "@raycast/utils";
-import { useEffect, useMemo, useState } from "react";
-import { formatHours, isAxiosError, newTimeEntry, useCompany, useMyProjects } from "./services/harvest";
-import { parseDuration } from "./services/parseDuration";
-import { HarvestTimeEntry } from "./services/responseTypes";
 import dayjs from "dayjs";
-import isToday from "dayjs/plugin/isToday";
-import { find, groupBy, isDate, isEmpty, omitBy } from "es-toolkit/compat";
+import { useEffect, useMemo, useState } from "react";
+import { KeitoGate } from "./components/KeitoGate";
+import { entryEditability, formatHours as formatHoursValue } from "./services/keito/normalize";
+import { ResolvedSession, scopedKey } from "./services/keito/session";
+import { Project, TimeEntry } from "./services/keito/types";
+import { planEntry, startTimer } from "./services/keito/workflows";
+import { parseDuration } from "./services/parseDuration";
+import {
+  confirmReplaceRunning,
+  getApi,
+  getKeitoPreferences,
+  refreshMenuBar,
+  showKeitoError,
+  useProjects,
+  useProjectTasks,
+} from "./services/useKeito";
 
-dayjs.extend(isToday);
+export interface EntryFormProps {
+  session: ResolvedSession;
+  /** Existing entry to edit. */
+  entry?: TimeEntry;
+  /** Entry to copy into a new one (duplicate). */
+  template?: TimeEntry;
+  viewDate?: Date | null;
+  onSave?: () => Promise<void> | void;
+}
 
-export default function Command({
-  onSave = async () => {
-    return;
-  },
-  viewDate,
-  entry,
-}: {
-  onSave: () => Promise<void>;
-  entry?: HarvestTimeEntry;
-  viewDate: Date | null;
-}) {
+export function groupProjectsByClient(
+  projects: Project[]
+): { clientKey: string; clientName: string; projects: Project[] }[] {
+  const groups = new Map<string, { clientKey: string; clientName: string; projects: Project[] }>();
+  for (const project of projects) {
+    const clientKey = project.clientId ?? "no-client";
+    const group = groups.get(clientKey) ?? { clientKey, clientName: project.clientName ?? "No Client", projects: [] };
+    group.projects.push(project);
+    groups.set(clientKey, group);
+  }
+  return [...groups.values()]
+    .sort((a, b) => a.clientName.localeCompare(b.clientName))
+    .map((g) => ({ ...g, projects: g.projects.sort((a, b) => a.name.localeCompare(b.name)) }));
+}
+
+export function projectTitle(project: Project, showClient: boolean): string {
+  return `${showClient && project.clientName ? `${project.clientName} – ` : ""}${
+    project.code ? `[${project.code}] ` : ""
+  }${project.name}`;
+}
+
+export function ProjectDropdownItems({ projects }: { projects: Project[] }) {
+  const { showClientInProject = false } = getKeitoPreferences();
+  const groups = useMemo(() => groupProjectsByClient(projects), [projects]);
+  return (
+    <>
+      {groups.map((group) => (
+        <Form.Dropdown.Section title={group.clientName} key={group.clientKey}>
+          {group.projects.map((project) => (
+            <Form.Dropdown.Item
+              key={project.id}
+              value={project.id}
+              title={projectTitle(project, showClientInProject)}
+              keywords={[group.clientName.toLowerCase(), ...(project.code ? [project.code.toLowerCase()] : [])]}
+            />
+          ))}
+        </Form.Dropdown.Section>
+      ))}
+    </>
+  );
+}
+
+export function EntryForm({ session, entry, template, viewDate, onSave }: EntryFormProps) {
   const { pop } = useNavigation();
-  const { data: company, error } = useCompany();
-  const { data: projects, isLoading: isLoadingProjects } = useMyProjects();
-  const [projectId, setProjectId] = useState<string | null>(entry?.project.id.toString() ?? null);
-  const [taskId, setTaskId] = useState<string | null>(entry?.task.id.toString() ?? null);
-  const [notes, setNotes] = useState<string>(entry?.notes ?? "");
-  const [hours, setHours] = useState<string>(formatHours(entry?.hours?.toFixed(2), company));
-  const [hoursError, setHoursError] = useState<string | undefined>();
-  const [spentDate, setSpentDate] = useState<Date>(viewDate ?? new Date());
-  const {
-    showClient = false,
-    timeFormat = "company",
-    showClientInProject = false,
-  } = getPreferenceValues<{
-    showClient?: boolean;
-    timeFormat?: "company" | "hours_minutes" | "decimal";
-    showClientInProject?: boolean;
-  }>();
+  const prefs = getKeitoPreferences();
+  const mode = prefs.entryMode ?? "duration";
+  const timeFormat = prefs.timeFormat ?? "hours_minutes";
+  const source = entry ?? template;
+  const isEdit = !!entry;
+  const isRunning = !!entry?.isRunning;
+  const lock = entry ? entryEditability(entry) : undefined;
 
-  // Use useLocalStorage for persisting last used project/task
+  const { data: projects, isLoading: isLoadingProjects, byId } = useProjects(session.scope);
+  const [projectId, setProjectId] = useState<string | null>(source?.projectId ?? null);
+  const [taskId, setTaskId] = useState<string | null>(source?.taskId ?? null);
+  const { data: tasks, isLoading: isLoadingTasks } = useProjectTasks(session.scope, projectId);
+  const [notes, setNotes] = useState(source?.notes ?? "");
+  const [duration, setDuration] = useState(
+    source && !source.isRunning ? formatHoursValue(source.hours, timeFormat) : ""
+  );
+  const [startTime, setStartTime] = useState(entry?.startedTime ?? "");
+  const [endTime, setEndTime] = useState(entry && !isRunning ? entry.endedTime ?? "" : "");
+  const [spentDate, setSpentDate] = useState<Date>(entry ? dayjs(entry.spentDate).toDate() : viewDate ?? new Date());
+  const [errors, setErrors] = useState<
+    Partial<Record<"project" | "task" | "duration" | "startTime" | "endTime", string>>
+  >({});
+
   const {
     value: lastProject,
     setValue: setLastProject,
     isLoading: isLoadingLastProject,
-  } = useLocalStorage<{
-    projectId: string;
-    taskId: string;
-  }>("lastProject");
+  } = useLocalStorage<{ projectId: string; taskId: string }>(scopedKey(session.scope, "lastProject"));
 
+  // New entries start from the last used project and task for this account.
   useEffect(() => {
-    if (error) {
-      if (isAxiosError(error) && error.response?.status === 401) {
-        showToast({
-          style: Toast.Style.Failure,
-          title: "Invalid Token",
-          message: "Your API token or Account ID is invalid. Go to Raycast Preferences to update it.",
-        });
+    if (!source && lastProject && !projectId) {
+      setProjectId(lastProject.projectId);
+      setTaskId(lastProject.taskId);
+    }
+  }, [lastProject]);
+
+  // Keep the selected project valid once projects load.
+  useEffect(() => {
+    if (isLoadingProjects || !projects.length) return;
+    if (projectId && byId.has(projectId)) return;
+    if (projectId && source) return; // keep an archived project on an existing entry so it can still be shown
+    setProjectId(projects[0]?.id ?? null);
+  }, [projects, isLoadingProjects]);
+
+  // Keep the selected task valid for the selected project.
+  useEffect(() => {
+    if (isLoadingTasks || !projectId) return;
+    if (taskId && tasks.some((t) => t.id === taskId)) return;
+    setTaskId(tasks[0]?.id ?? null);
+  }, [tasks, isLoadingTasks, projectId]);
+
+  const selectedProject = projectId ? byId.get(projectId) : undefined;
+
+  function normalizeDurationField(value: string) {
+    if (!value.trim()) return;
+    const parsed = parseDuration(value);
+    if (!parsed) {
+      setErrors((e) => ({ ...e, duration: "Invalid duration" }));
+      return;
+    }
+    setDuration(formatHoursValue(Math.round(parsed.asMinutes()) / 60, timeFormat));
+  }
+
+  async function handleSubmit() {
+    const date = dayjs(spentDate).format("YYYY-MM-DD");
+    const plan = planEntry(
+      { projectId, taskId, spentDate: date, notes, duration, startTime, endTime },
+      { mode, existing: entry, externalReference: template?.externalReference }
+    );
+
+    if (plan.kind === "error") {
+      if (plan.field === "form") await showToast({ style: Toast.Style.Failure, title: plan.message });
+      else setErrors({ [plan.field]: plan.message });
+      return;
+    }
+
+    if (plan.kind === "timer" && !dayjs(spentDate).isSame(dayjs(), "day")) {
+      const confirmed = await confirmAlert({
+        icon: Icon.ExclamationMark,
+        title: "Start a Timer on Another Day?",
+        message: "You are starting a timer on a date other than today. Did you mean to enter a duration instead?",
+        primaryAction: { title: "Start Timer", style: Alert.ActionStyle.Destructive },
+      });
+      if (!confirmed) return;
+    }
+
+    const toast = await showToast({ style: Toast.Style.Animated, title: "Saving to Keito…" });
+    try {
+      const api = getApi();
+      let hud: string;
+      if (plan.kind === "timer") {
+        const result = await startTimer(
+          { api, userId: session.identity.userId, confirmReplace: confirmReplaceRunning },
+          plan.input
+        );
+        if (result.status === "cancelled") {
+          await toast.hide();
+          return;
+        }
+        hud = result.replaced ? "Switched Timer" : "Timer Started";
+      } else if (plan.kind === "create") {
+        await api.createTimeEntry(plan.body);
+        hud = "Time Entry Created";
       } else {
-        showToast({
-          style: Toast.Style.Failure,
-          title: "Unknown Error",
-          message: "Could not get your company data",
-        });
+        await api.updateTimeEntry(plan.id, plan.body);
+        hud = "Time Entry Updated";
       }
-    }
-  }, [error]);
-
-  const groupedProjects = useMemo(() => {
-    // Group by client, then sort clients and projects alphabetically
-    const grouped = groupBy(projects, (o) => o.client.id);
-    return Object.values(grouped)
-      .sort((a, b) => a[0].client.name.localeCompare(b[0].client.name))
-      .map((group) => group.sort((a, b) => a.project.name.localeCompare(b.project.name)));
-  }, [projects]);
-
-  useEffect(() => {
-    if (!entry && lastProject) {
-      setProjectId(lastProject?.projectId?.toString());
-      setTaskId(lastProject?.taskId?.toString());
-    }
-  }, [entry, lastProject]);
-
-  // Watch for changes to projectId to reset taskId unless the change is related to lastProject being loaded
-  useEffect(() => {
-    if (lastProject && lastProject.projectId !== projectId) setTaskId(null);
-  }, [projectId]);
-
-  async function handleSubmit(values: Record<string, Form.Value>) {
-    if (values.project_id === null) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "No Project Selected",
-      });
-      return;
-    }
-    if (values.task_id === null) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "No Task Selected",
-      });
-      return;
-    }
-
-    const parsedHours = formatDuration(hours);
-    if (hours && !parsedHours) {
-      showToast({ style: Toast.Style.Failure, title: "Invalid Duration" });
-      return;
-    }
-    const spentDate = isDate(values.spent_date) ? values.spent_date : viewDate;
-
-    if (!company?.wants_timestamp_timers && !dayjs(spentDate).isToday() && !parsedHours)
-      if (
-        !(await confirmAlert({
-          icon: Icon.ExclamationMark,
-          title: "Warning",
-          message:
-            "You are about to start a timer on a different day (not today). Maybe you meant to enter some time on that day instead?",
-          primaryAction: { title: "Start Timer", style: Alert.ActionStyle.Destructive },
-        }))
-      ) {
-        return; // user canceled
-      }
-
-    const toast = await showToast({ style: Toast.Style.Animated, title: "Loading..." });
-    await toast.show();
-
-    const data = omitBy(values, isEmpty);
-    // Always include notes when editing to allow clearing
-    if (entry?.id && !data.notes) {
-      data.notes = "";
-    }
-    // Use parsed hours instead of raw form value
-    if (parsedHours) {
-      data.hours = parsedHours;
-    }
-    const timeEntry = await newTimeEntry(
-      {
-        ...data,
-        project_id: parseInt(values.project_id.toString()),
-        task_id: parseInt(values.task_id.toString()),
-        spent_date: dayjs(spentDate).format("YYYY-MM-DD"),
-      },
-      entry?.id?.toString()
-    ).catch(async (error) => {
-      console.error(error.response.data);
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Error",
-        message: error.response.data.message,
-      });
-    });
-
-    await setLastProject({ projectId: values.project_id.toString(), taskId: values.task_id.toString() });
-
-    if (timeEntry) {
-      toast.hide();
-      await onSave();
-      await showHUD(entry?.id ? "Time Entry Updated" : timeEntry.is_running ? "Timer Started" : "Time Entry Created");
+      if (projectId && taskId) await setLastProject({ projectId, taskId });
+      await toast.hide();
+      await onSave?.();
+      await refreshMenuBar();
+      await showHUD(hud);
       pop();
+    } catch (error) {
+      await toast.hide();
+      await showKeitoError(error, "Could not save the time entry");
     }
   }
 
-  const tasks = useMemo(() => {
-    const project = find(projects, (o) => {
-      return o.project.id === parseInt(projectId ?? "0");
-    });
-    return project ? project.task_assignments : [];
-  }, [projects, projectId]);
-
-  function formatDuration(value?: string): string | undefined {
-    if (!value) {
-      setHoursError(undefined);
-      return undefined;
-    }
-
-    const duration = parseDuration(value);
-    if (!duration) {
-      setHoursError("Invalid duration");
-      return undefined;
-    }
-
-    setHoursError(undefined);
-    const totalMinutes = Math.round(duration.asMinutes());
-    const useHoursMinutes =
-      timeFormat === "hours_minutes" || (timeFormat === "company" && company?.time_format === "hours_minutes");
-
-    let formatted: string;
-    if (useHoursMinutes) {
-      const h = Math.floor(totalMinutes / 60);
-      const m = totalMinutes % 60;
-      formatted = `${h}:${m < 10 ? "0" : ""}${m}`;
-    } else {
-      formatted = (totalMinutes / 60).toFixed(2);
-    }
-    setHours(formatted);
-    return formatted;
-  }
+  const submitTitle = isEdit
+    ? "Update Time Entry"
+    : (mode === "duration" ? duration.trim() : endTime.trim())
+    ? "Create Time Entry"
+    : "Start Timer";
 
   return (
     <Form
-      navigationTitle={entry?.id ? "Edit Time Entry" : "New Time Entry"}
-      isLoading={!entry && ((!tasks.length && isLoadingProjects) || isLoadingLastProject)}
+      navigationTitle={isEdit ? "Edit Time Entry" : template ? "Duplicate Time Entry" : "New Time Entry"}
+      isLoading={isLoadingProjects || isLoadingTasks || (!source && isLoadingLastProject)}
       actions={
         <ActionPanel>
-          <Action.SubmitForm
-            onSubmit={handleSubmit}
-            title={entry?.id ? "Update Time Entry" : hours ? "Create Time Entry" : "Start Timer"}
-          />
+          {lock?.canEdit !== false && (
+            <Action.SubmitForm title={submitTitle} icon={Icon.Clock} onSubmit={handleSubmit} />
+          )}
         </ActionPanel>
       }
     >
-      {showClient && (
-        <Form.Description
-          text={projects.find((o) => o.project.id === parseInt(projectId ?? "0"))?.client.name ?? ""}
-          title="Client"
-        />
+      {lock && !lock.canEdit && (
+        <Form.Description title="Locked" text={lock.reason ?? "This entry cannot be changed."} />
+      )}
+      {prefs.showClient && (
+        <Form.Description title="Client" text={selectedProject?.clientName ?? source?.clientName ?? ""} />
       )}
       <Form.Dropdown
         id="project_id"
         title="Project"
-        key={`project-${entry?.id}`}
         value={projectId ?? ""}
-        onChange={setProjectId}
+        error={errors.project}
+        onChange={(value) => {
+          setProjectId(value || null);
+          setErrors((e) => ({ ...e, project: undefined, task: undefined }));
+        }}
       >
-        {groupedProjects?.map((groupedProject) => {
-          const client = groupedProject[0].client;
-          return (
-            <Form.Dropdown.Section title={client.name} key={client.id}>
-              {groupedProject.map((project) => {
-                const code = project.project.code;
-                return (
-                  <Form.Dropdown.Item
-                    keywords={[project.client.name.toLowerCase()]}
-                    value={project.project.id.toString()}
-                    title={`${showClientInProject ? client.name + " – " : ""}${
-                      code && code !== "" ? "[" + code + "] " : ""
-                    }${project.project.name}`}
-                    key={project.id}
-                  />
-                );
-              })}
-            </Form.Dropdown.Section>
-          );
-        })}
+        {source && projectId === source.projectId && !byId.has(source.projectId) && (
+          <Form.Dropdown.Item value={source.projectId} title={`${source.projectName} (not in your active projects)`} />
+        )}
+        <ProjectDropdownItems projects={projects} />
       </Form.Dropdown>
       <Form.Dropdown
         id="task_id"
         title="Task"
-        value={tasks.find((t) => t.task.id.toString() === taskId) ? taskId ?? "" : ""}
-        onChange={setTaskId}
+        value={taskId && tasks.some((t) => t.id === taskId) ? taskId : ""}
+        error={errors.task}
+        info="Only tasks assigned to the selected project are listed."
+        onChange={(value) => {
+          setTaskId(value || null);
+          setErrors((e) => ({ ...e, task: undefined }));
+        }}
       >
-        {tasks?.map((task) => {
-          return <Form.Dropdown.Item value={task.task.id.toString()} title={task.task.name} key={task.id} />;
-        })}
+        {tasks.map((task) => (
+          <Form.Dropdown.Item key={task.id} value={task.id} title={task.name} />
+        ))}
       </Form.Dropdown>
 
       <Form.Separator />
 
       <Form.TextArea id="notes" title="Notes" value={notes} onChange={setNotes} />
-      {company?.wants_timestamp_timers && (
+
+      {isRunning && (
+        <Form.Description title="Timer" text="This timer is running. Stop it before changing its duration." />
+      )}
+      {!isRunning && mode === "start_end" && (
         <>
-          <Form.TextField id="started_time" title="Start Time" placeholder="Leave blank to default to now." />
-          <Form.TextField id="ended_time" title="End Time" placeholder="Leave blank to start a new timer" />
+          <Form.TextField
+            id="started_time"
+            title="Start Time"
+            placeholder={isEdit ? "HH:mm" : "Leave blank to start now"}
+            value={startTime}
+            error={errors.startTime}
+            info="Workspace time, e.g. 09:30 or 9:30am. A past start for a new timer requires Keito's Past timer starts setting."
+            onChange={(v) => {
+              setStartTime(v);
+              setErrors((e) => ({ ...e, startTime: undefined }));
+            }}
+          />
+          <Form.TextField
+            id="ended_time"
+            title="End Time"
+            placeholder={isEdit ? "HH:mm" : "Leave blank to start a timer"}
+            value={endTime}
+            error={errors.endTime}
+            onChange={(v) => {
+              setEndTime(v);
+              setErrors((e) => ({ ...e, endTime: undefined }));
+            }}
+          />
         </>
       )}
-      {!company?.wants_timestamp_timers && (
+      {!isRunning && mode === "duration" && (
         <Form.TextField
           id="hours"
           title="Duration"
-          placeholder="Leave blank to start a new timer"
-          value={hours}
-          error={hoursError}
+          placeholder={isEdit ? "e.g. 1:30" : "Leave blank to start a timer"}
+          value={duration}
+          error={errors.duration}
           onChange={(v) => {
-            setHours(v);
-            setHoursError(undefined);
+            setDuration(v);
+            setErrors((e) => ({ ...e, duration: undefined }));
           }}
-          onBlur={(e) => formatDuration(e.target.value)}
-          info="You can enter numbers (decimal or h:mm format), simple durations (e.g. 1h30m), or simple time math (e.g. 1+15m-5m)"
+          onBlur={(e) => normalizeDurationField(e.target.value ?? "")}
+          info="Enter decimal hours or h:mm, durations like 1h30m, or simple math like 1+15m-5m."
         />
       )}
       <Form.DatePicker
@@ -298,8 +312,12 @@ export default function Command({
         title="Date"
         type={Form.DatePicker.Type.Date}
         value={spentDate}
-        onChange={(newValue) => newValue && setSpentDate(newValue)}
+        onChange={(value) => value && setSpentDate(value)}
       />
     </Form>
   );
+}
+
+export default function Command() {
+  return <KeitoGate>{(session) => <EntryForm session={session} />}</KeitoGate>;
 }

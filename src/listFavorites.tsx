@@ -4,267 +4,209 @@ import {
   Alert,
   Color,
   confirmAlert,
-  getPreferenceValues,
   Icon,
   List,
   LocalStorage,
   showHUD,
   showToast,
   Toast,
+  useNavigation,
 } from "@raycast/api";
-import { useEffect, useState } from "react";
-import { useFrecencySorting } from "@raycast/utils";
-import { formatHours, newTimeEntry, stopTimer, useCompany } from "./services/harvest";
-import dayjs from "dayjs";
+import { useFrecencySorting, usePromise } from "@raycast/utils";
 import { AddFavoriteAction, EditFavoriteAction } from "./addFavoriteForm";
+import { KeitoGate } from "./components/KeitoGate";
 import ListTimeEntries from "./listTimeEntries";
+import {
+  Favorite,
+  favoriteAvailability,
+  favoritesFrecencyNamespace,
+  favoritesKey,
+  parseFavorites,
+  upsertFavorite as upsertInList,
+} from "./services/keito/favorites";
+import { ResolvedSession } from "./services/keito/session";
+import { startTimer } from "./services/keito/workflows";
+import {
+  confirmReplaceRunning,
+  formatHours,
+  getApi,
+  getKeitoPreferences,
+  refreshMenuBar,
+  showKeitoError,
+  todayString,
+  useProjects,
+} from "./services/useKeito";
 
-// Favorite interface
-export interface Favorite {
-  id: string;
-  projectId: number;
-  projectName: string;
-  taskId: number;
-  taskName: string;
-  clientId: number;
-  clientName: string;
-  notes?: string;
-  hours?: string;
-}
-
-export interface Preferences {
-  titleDisplay: "task" | "project";
-}
-
-const FAVORITES_STORAGE_KEY = "harvest-favorites";
-
-export default function Command() {
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { data: company } = useCompany();
-  const { titleDisplay }: Preferences = getPreferenceValues();
-
-  // Use frecency sorting to rank favorites by usage
+function Favorites({ session }: { session: ResolvedSession }) {
+  const { push } = useNavigation();
+  const key = favoritesKey(session.scope);
+  const { titleDisplay = "project" } = getKeitoPreferences();
+  const { data: projects, isLoading: isLoadingProjects } = useProjects(session.scope);
   const {
-    data: sortedFavorites,
+    data: favorites = [],
+    isLoading,
+    mutate,
+  } = usePromise(async (storageKey: string) => parseFavorites(await LocalStorage.getItem<string>(storageKey)), [key]);
+
+  const {
+    data: sorted,
     visitItem,
     resetRanking,
   } = useFrecencySorting(favorites, {
-    namespace: "harvest-favorites",
+    namespace: favoritesFrecencyNamespace(session.scope),
     key: (item) => item.id,
   });
 
-  // Load favorites from LocalStorage on mount
-  useEffect(() => {
-    async function loadFavorites() {
-      try {
-        const stored = await LocalStorage.getItem<string>(FAVORITES_STORAGE_KEY);
-        if (stored) {
-          setFavorites(JSON.parse(stored));
-        }
-      } catch (error) {
-        console.error("Failed to load favorites:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadFavorites();
-  }, []);
-
-  // Helper function to update favorites in both state and LocalStorage
-  async function updateFavorites(newFavorites: Favorite[]) {
-    setFavorites(newFavorites);
-    await LocalStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
+  async function save(next: Favorite[]) {
+    await mutate(LocalStorage.setItem(key, JSON.stringify(next)), { optimisticUpdate: () => next });
   }
 
-  // Upsert function: adds new favorite or updates existing one
-  async function upsertFavorite(favorite: Favorite) {
-    const existingIndex = favorites.findIndex((f) => f.id === favorite.id);
-
-    let newFavorites: Favorite[];
-    if (existingIndex >= 0) {
-      // Update existing favorite
-      newFavorites = [...favorites];
-      newFavorites[existingIndex] = favorite;
-      await showToast({ style: Toast.Style.Success, title: "Favorite Updated" });
-    } else {
-      // Add new favorite
-      newFavorites = [...favorites, favorite];
-      await showToast({ style: Toast.Style.Success, title: "Favorite Added" });
-    }
-
-    await updateFavorites(newFavorites);
+  async function upsert(favorite: Favorite) {
+    const { favorites: next, added } = upsertInList(favorites, favorite);
+    await save(next);
+    await showToast({ style: Toast.Style.Success, title: added ? "Favorite Added" : "Favorite Updated" });
   }
 
-  async function deleteFavorite(favorite: Favorite) {
-    if (
-      await confirmAlert({
-        title: "Delete Favorite",
-        message: "Are you sure you want to delete this favorite?",
-        icon: Icon.Trash,
-        primaryAction: {
-          title: "Delete",
-          style: Alert.ActionStyle.Destructive,
-        },
-      })
-    ) {
-      const newFavorites = favorites.filter((f: Favorite) => f.id !== favorite.id);
-      await updateFavorites(newFavorites);
-      await showToast({ style: Toast.Style.Success, title: "Favorite Deleted" });
-    }
-  }
-
-  async function startTimerOrCreateEntry(favorite: Favorite) {
-    const hasDuration = !!favorite.hours;
-    const toast = new Toast({
-      style: Toast.Style.Animated,
-      title: hasDuration ? "Creating Time Entry..." : "Starting Timer...",
+  async function remove(favorite: Favorite) {
+    const confirmed = await confirmAlert({
+      title: "Delete Favorite?",
+      message: `${favorite.projectName} – ${favorite.taskName}`,
+      icon: Icon.Trash,
+      primaryAction: { title: "Delete", style: Alert.ActionStyle.Destructive },
     });
-    await toast.show();
+    if (!confirmed) return;
+    await save(favorites.filter((f) => f.id !== favorite.id));
+    await showToast({ style: Toast.Style.Success, title: "Favorite Deleted" });
+  }
 
+  async function use(favorite: Favorite) {
+    const hasDuration = !!favorite.hours;
+    const toast = await showToast({
+      style: Toast.Style.Animated,
+      title: hasDuration ? "Creating time entry…" : "Starting timer…",
+    });
     try {
-      // Only stop running timer if we're starting a new timer (no duration)
-      if (!hasDuration) {
-        await stopTimer();
+      const api = getApi();
+      if (hasDuration) {
+        await api.createTimeEntry({
+          project_id: favorite.projectId,
+          task_id: favorite.taskId,
+          spent_date: todayString(),
+          hours: Number(favorite.hours),
+          notes: favorite.notes,
+          source: "api",
+        });
+      } else {
+        const result = await startTimer(
+          { api, userId: session.identity.userId, confirmReplace: confirmReplaceRunning },
+          { projectId: favorite.projectId, taskId: favorite.taskId, spentDate: todayString(), notes: favorite.notes }
+        );
+        if (result.status === "cancelled") {
+          await toast.hide();
+          return;
+        }
       }
-
-      // Create new time entry with today's date
-      const param: {
-        project_id: number;
-        task_id: number;
-        spent_date: string;
-        notes?: string;
-        hours?: number;
-      } = {
-        project_id: favorite.projectId,
-        task_id: favorite.taskId,
-        spent_date: dayjs().format("YYYY-MM-DD"),
-      };
-
-      if (favorite.notes) {
-        param.notes = favorite.notes;
-      }
-
-      if (favorite.hours) {
-        param.hours = parseFloat(favorite.hours);
-      }
-
-      const timeEntry = await newTimeEntry(param);
-
-      // Update frecency ranking when a favorite is used
       await visitItem(favorite);
-
       await toast.hide();
-
-      if (!hasDuration) {
-        // For time entries with duration, we'll navigate to the timesheet
-        // The HUD message will be shown after navigation
-        await showHUD(timeEntry.is_running ? "Timer Started" : "Time Entry Created");
+      await refreshMenuBar();
+      if (hasDuration) {
+        push(<ListTimeEntries />);
+      } else {
+        await showHUD("Timer Started");
       }
     } catch (error) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Error",
-        message: hasDuration ? "Could not create time entry" : "Could not start timer",
-      });
+      await toast.hide();
+      await showKeitoError(error, hasDuration ? "Could not create the time entry" : "Could not start the timer");
     }
   }
-
-  const hasFavorites = favorites.length > 0;
 
   return (
     <List
-      searchBarPlaceholder="Filter Favorites"
-      isLoading={isLoading}
+      searchBarPlaceholder="Filter favorites"
+      isLoading={isLoading || isLoadingProjects}
       navigationTitle="Favorites"
       actions={
-        !hasFavorites ? (
-          <ActionPanel>
-            <AddFavoriteAction onSave={upsertFavorite} />
-          </ActionPanel>
-        ) : undefined
+        <ActionPanel>
+          <AddFavoriteAction session={session} onSave={upsert} />
+        </ActionPanel>
       }
     >
-      {hasFavorites ? (
-        <List.Section title="Your Favorites">
-          {sortedFavorites.map((favorite) => {
-            const hasDuration = !!favorite.hours;
-            const actionTitle = hasDuration ? "Create Time Entry" : "Start Timer";
-
-            return (
-              <List.Item
-                key={favorite.id}
-                title={titleDisplay === "task" ? favorite.taskName : favorite.projectName}
-                keywords={[
-                  ...(favorite.notes?.split(" ") ?? []),
-                  ...(favorite.clientName?.split(" ") ?? []),
-                  ...((titleDisplay === "task" ? favorite.projectName : favorite.taskName)?.split(" ") ?? []),
-                ]}
-                accessories={[
-                  {
-                    text: titleDisplay === "task" ? favorite.projectName : favorite.taskName,
-                    icon: Icon.Tag,
-                  },
-                  { text: favorite.clientName, icon: Icon.Building },
-                  ...(hasDuration ? [{ tag: formatHours(favorite.hours, company), icon: Icon.Clock }] : []),
-                ]}
-                subtitle={favorite.notes}
-                icon={{ source: Icon.Star, tintColor: Color.Yellow }}
-                actions={
-                  <ActionPanel>
-                    <ActionPanel.Section title={`${favorite.projectName} | ${favorite.clientName}`}>
-                      {hasDuration ? (
-                        <Action.Push
-                          title={actionTitle}
-                          icon={Icon.Clock}
-                          target={<ListTimeEntries />}
-                          onPush={() => startTimerOrCreateEntry(favorite)}
-                        />
-                      ) : (
-                        <Action
-                          title={actionTitle}
-                          icon={Icon.Clock}
-                          onAction={() => startTimerOrCreateEntry(favorite)}
-                        />
-                      )}
-                      <EditFavoriteAction favorite={favorite} onSave={upsertFavorite} />
+      <List.EmptyView
+        icon={{ source: Icon.Star, tintColor: Color.SecondaryText }}
+        title="No Favorites Yet"
+        description={`Press ⌘N to add a favorite for ${session.identity.companyName ?? "this Keito company"}.`}
+      />
+      <List.Section title="Your Favorites" subtitle={session.identity.companyName}>
+        {sorted.map((favorite) => {
+          const availability = favoriteAvailability(favorite, isLoadingProjects ? undefined : projects);
+          const hasDuration = !!favorite.hours;
+          const other = titleDisplay === "task" ? favorite.projectName : favorite.taskName;
+          return (
+            <List.Item
+              key={favorite.id}
+              title={titleDisplay === "task" ? favorite.taskName : favorite.projectName}
+              subtitle={favorite.notes}
+              keywords={[
+                ...(favorite.notes?.split(/\s+/) ?? []),
+                ...(favorite.clientName?.split(/\s+/) ?? []),
+                ...other.split(/\s+/),
+              ]}
+              icon={
+                availability.available
+                  ? { source: Icon.Star, tintColor: Color.Yellow }
+                  : { source: Icon.Warning, tintColor: Color.Orange }
+              }
+              accessories={[
+                { text: other, icon: Icon.Tag },
+                ...(favorite.clientName ? [{ text: favorite.clientName, icon: Icon.Building }] : []),
+                ...(hasDuration ? [{ tag: formatHours(Number(favorite.hours)), icon: Icon.Clock }] : []),
+                ...(!availability.available
+                  ? [{ tag: { value: "Unavailable", color: Color.Orange }, tooltip: availability.reason }]
+                  : []),
+              ]}
+              actions={
+                <ActionPanel>
+                  <ActionPanel.Section
+                    title={`${favorite.projectName}${favorite.clientName ? ` | ${favorite.clientName}` : ""}`}
+                  >
+                    {availability.available && (
                       <Action
-                        title="Reset Ranking"
-                        icon={Icon.ArrowCounterClockwise}
-                        shortcut={{ key: "r", modifiers: ["cmd", "shift"] }}
-                        onAction={async () => {
-                          await resetRanking(favorite);
-                          await showToast({
-                            style: Toast.Style.Success,
-                            title: "Ranking Reset",
-                            message: "Favorite ranking has been reset",
-                          });
-                        }}
+                        title={hasDuration ? "Create Time Entry" : "Start Timer"}
+                        icon={Icon.Clock}
+                        onAction={() => use(favorite)}
                       />
-                      <Action
-                        title="Delete Favorite"
-                        icon={Icon.Trash}
-                        style={Action.Style.Destructive}
-                        shortcut={{ key: "x", modifiers: ["ctrl"] }}
-                        onAction={() => deleteFavorite(favorite)}
-                      />
-                    </ActionPanel.Section>
-                    <ActionPanel.Section title="Manage Favorites">
-                      <AddFavoriteAction onSave={upsertFavorite} />
-                    </ActionPanel.Section>
-                  </ActionPanel>
-                }
-              />
-            );
-          })}
-        </List.Section>
-      ) : (
-        <List.EmptyView
-          icon={{ source: Icon.Star, tintColor: Color.SecondaryText }}
-          title="No Favorites Yet"
-          description="Add your first favorite to quickly start timers"
-        />
-      )}
+                    )}
+                    <EditFavoriteAction session={session} favorite={favorite} onSave={upsert} />
+                    <Action
+                      title="Reset Ranking"
+                      icon={Icon.ArrowCounterClockwise}
+                      shortcut={{ key: "r", modifiers: ["cmd", "shift"] }}
+                      onAction={async () => {
+                        await resetRanking(favorite);
+                        await showToast({ style: Toast.Style.Success, title: "Ranking Reset" });
+                      }}
+                    />
+                    <Action
+                      title="Delete Favorite"
+                      icon={Icon.Trash}
+                      style={Action.Style.Destructive}
+                      shortcut={{ key: "x", modifiers: ["ctrl"] }}
+                      onAction={() => remove(favorite)}
+                    />
+                  </ActionPanel.Section>
+                  <ActionPanel.Section title="Manage Favorites">
+                    <AddFavoriteAction session={session} onSave={upsert} />
+                  </ActionPanel.Section>
+                </ActionPanel>
+              }
+            />
+          );
+        })}
+      </List.Section>
     </List>
   );
+}
+
+export default function Command() {
+  return <KeitoGate>{(session) => <Favorites session={session} />}</KeitoGate>;
 }

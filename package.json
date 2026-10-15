@@ -2,8 +2,8 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "keito",
   "title": "Keito",
-  "description": "Keito time tracking starter, adapted from Harvest (API port pending)",
-  "icon": "harvest-logo-icon.png",
+  "description": "Track time in Keito: start, stop, and switch timers, log and edit entries, keep favorites, and see your running timer in the menu bar.",
+  "icon": "keito-icon.png",
   "author": "eluce2",
   "contributors": [
     "bchopson",
@@ -19,11 +19,19 @@
   "license": "MIT",
   "commands": [
     {
+      "name": "connection",
+      "icon": "keito-icon.png",
+      "title": "Keito Connection",
+      "subtitle": "Keito",
+      "description": "Check your Keito API key, Company ID, identity, and project/task access",
+      "mode": "view"
+    },
+    {
       "name": "new",
       "icon": "add.png",
       "title": "New Time Entry",
       "subtitle": "Keito",
-      "description": "Start a new Timer",
+      "description": "Start a Keito timer or log a completed time entry",
       "mode": "view"
     },
     {
@@ -64,7 +72,7 @@
         }
       ],
       "subtitle": "Keito",
-      "description": "Start a new Timer",
+      "description": "View, edit, restart, and delete today's or previous days' Keito time entries",
       "mode": "view"
     },
     {
@@ -88,7 +96,7 @@
       "icon": "toggle.png",
       "title": "Toggle Timer",
       "subtitle": "Keito",
-      "description": "Toggles the most recently used Keito Timer",
+      "description": "Stop the running Keito timer, or restart today's most recent entry",
       "mode": "no-view"
     },
     {
@@ -113,28 +121,37 @@
           "name": "statusFolder",
           "title": "Status Folder",
           "type": "directory",
-          "description": "Folder to write status files to. See README for more info.",
+          "description": "Optional folder where currentTimer.json is written while a timer runs, for automation tools. See README.",
           "required": false,
           "label": "Status Folder",
           "placeholder": "Select a directory"
         }
       ]
+    },
+    {
+      "name": "resetLocalData",
+      "icon": "keito-icon.png",
+      "title": "Reset Local Keito Data",
+      "subtitle": "Keito",
+      "description": "Clear cached Keito projects, entries, and verified identity (favorites are kept)",
+      "mode": "no-view"
     }
   ],
   "preferences": [
     {
       "name": "token",
       "title": "Keito Integration API Key",
-      "description": "Full-access integration key; personal read-only sync keys cannot control timers.",
+      "description": "Full-access integration key (kto_…) that a Keito Administrator created and bound to you. Personal read-only sync keys cannot track time.",
       "required": true,
       "link": "https://keito.ai/docs/auth/api-keys",
-      "type": "password"
+      "type": "password",
+      "placeholder": "kto_…"
     },
     {
       "name": "accountID",
       "title": "Keito Company ID",
       "required": true,
-      "description": "Company ID from Settings \u2192 API & Developers.",
+      "description": "Shown in Keito under Settings → API & Developers → Company ID.",
       "link": "https://keito.ai/docs/auth/api-keys",
       "type": "textfield"
     },
@@ -143,7 +160,8 @@
       "description": "in the time entry form",
       "required": false,
       "label": "Show Client Name above selected project",
-      "type": "checkbox"
+      "type": "checkbox",
+      "title": "Entry Form"
     },
     {
       "name": "showClientInProject",
@@ -158,21 +176,35 @@
       "name": "timeFormat",
       "title": "Time Format",
       "required": false,
-      "description": "Time Format",
+      "description": "How durations are displayed. Keito does not expose company display settings through the API.",
       "type": "dropdown",
-      "default": "company",
+      "default": "hours_minutes",
       "data": [
         {
-          "title": "Company Default",
-          "value": "company"
-        },
-        {
-          "title": "Hours/Minutes",
+          "title": "Hours:Minutes (1:30)",
           "value": "hours_minutes"
         },
         {
-          "title": "Decimal",
+          "title": "Decimal (1.50)",
           "value": "decimal"
+        }
+      ]
+    },
+    {
+      "name": "entryMode",
+      "title": "Entry Fields",
+      "required": false,
+      "description": "Enter a duration, or start and end times (HH:mm in the Keito workspace timezone).",
+      "type": "dropdown",
+      "default": "duration",
+      "data": [
+        {
+          "title": "Duration",
+          "value": "duration"
+        },
+        {
+          "title": "Start and End Times",
+          "value": "start_end"
         }
       ]
     },
@@ -198,13 +230,10 @@
   "dependencies": {
     "@raycast/api": "^1.103.0",
     "@raycast/utils": "^2.2.1",
-    "axios": "^1.12.2",
-    "dayjs": "^1.11.11",
-    "es-toolkit": "^1.40.0"
+    "dayjs": "^1.11.11"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^1.0.5",
-    "@types/lodash": "^4.14.175",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "eslint": "^7.32.0",

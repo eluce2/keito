@@ -28,7 +28,7 @@
     },
     {
       "name": "new",
-      "icon": "add.png",
+      "icon": "keito-add.png",
       "title": "New Time Entry",
       "subtitle": "Keito",
       "description": "Start a Keito timer or log a completed time entry",
@@ -36,7 +36,7 @@
     },
     {
       "name": "listTimeEntries",
-      "icon": "timer.png",
+      "icon": "keito-timer.png",
       "title": "Today's Timesheet",
       "preferences": [
         {
@@ -77,7 +77,7 @@
     },
     {
       "name": "listFavorites",
-      "icon": "favorite.png",
+      "icon": "keito-favorite.png",
       "title": "Favorites",
       "subtitle": "Keito",
       "description": "Quick access to favorite time entries",
@@ -85,7 +85,7 @@
     },
     {
       "name": "stopTimer",
-      "icon": "stop.png",
+      "icon": "keito-stop.png",
       "title": "Stop Timer",
       "subtitle": "Keito",
       "description": "Stop your running timer",
@@ -93,7 +93,7 @@
     },
     {
       "name": "toggleTimer",
-      "icon": "toggle.png",
+      "icon": "keito-toggle.png",
       "title": "Toggle Timer",
       "subtitle": "Keito",
       "description": "Stop the running Keito timer, or restart today's most recent entry",

@@ -79,13 +79,14 @@ function extensionIcon() {
 
 // Command icons: white glyphs on orange -> white glyphs on black. Orange has a blue channel near
 // 0 and white 255, so the blue channel gives the anti-aliased mix between tile and glyph.
+// Output files are prefixed "keito-" (a new name also makes Raycast drop its cached image).
 function recolor(name) {
   const { width, height, pixels } = originalPng(name);
   for (let i = 0; i < pixels.length; i += 4) {
     const mix = pixels[i + 2] / 255;
     for (let k = 0; k < 3; k++) pixels[i + k] = Math.round(BRAND[k] * (1 - mix) + WHITE[k] * mix);
   }
-  fs.writeFileSync(asset(name), writePng(width, height, pixels));
+  fs.writeFileSync(asset(`keito-${name}`), writePng(width, height, pixels));
 }
 
 extensionIcon();

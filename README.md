@@ -98,6 +98,8 @@ If you set **Status Folder** on the Running Timer command, the menu bar writes `
 
 - Workspace settings (timezone, entry format, required notes, past timer starts) come from fields in `GET /users/me` that work live but are not in Keito's public docs. If Keito stops returning them, the extension uses the Mac's date and doesn't enforce those rules locally. Keito still enforces them on the server.
 - Keito documents `started_time`/`ended_time` as `HH:mm`, but the live API returns `HH:mm:ss`. The extension reads either and always sends `HH:mm`.
+- In live testing on 2026-10-15, Keito **accepted an entry whose task was not assigned to the project**, and one whose end time was before its start. The docs say Keito validates the task. The extension checks both itself: the form lists only the project's tasks and rejects an end time before the start, and favorites check the task before starting.
+- Approved or locked entries return **403** "This time entry is locked…" live, not the documented 409. The extension treats both as locked.
 - Durations show the `hours` value Keito returns, which is refreshed on each load. The menu bar refreshes every minute.
 - **Open Keito** opens `https://app.keito.ai`, or an installed app named "Keito" if one exists. Keito does not document deep links.
 - The extension icon is a neutral placeholder, not Keito's official logo. The command icons are inherited generic glyphs.
@@ -124,6 +126,8 @@ npm run dev        # register the extension in Raycast
 ```
 
 `npm run test:live` runs **read-only** checks against the real API. It uses `KEITO_API_KEY` and `KEITO_ACCOUNT_ID` from a git-ignored `.env.local`, loaded with Node's `--env-file`. It verifies identity, both bad-credential responses, project pagination, tasks, and time-entry shapes. It prints only field names, counts, and statuses.
+
+`npm run test:live:write` runs live **write** checks. Use it only in a test workspace. It creates entries whose notes start with `[raycast-live-test …]`, then edits, re-times, starts, switches (409 conflict, then `replace_running`), stops, restarts, toggles, and deletes them. It finishes by deleting everything it created. On approved entries it only tries an edit that leaves the notes unchanged, plus a restart, and Keito refuses both. A timer you had running beforehand is stopped and restarted afterwards.
 
 The unit tests use scripted API responses. They cover onboarding errors (missing, malformed, revoked, read-only, and wrong-company credentials), credential changes, pagination with relative links and the origin guard, string IDs, task/project context, timer conflicts, approval and lock state, retries, the entry form logic, favorites, and the status file. **They do not prove the extension works against the live Keito API.**
 

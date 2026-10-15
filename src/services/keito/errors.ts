@@ -101,6 +101,18 @@ export function errorFromResponse(status: number, body: unknown, retryAfterSecon
       details
     );
   }
+  // Live Keito returns 403 "This time entry is locked and cannot be edited/restarted" for approved
+  // time; the docs describe 409. Treat either as a lock when the message says so.
+  if (
+    (status === 403 || status === 409 || status === 422) &&
+    LOCK_PATTERN.test(`${code ?? ""} ${serverMessage ?? ""}`)
+  ) {
+    return new KeitoError(
+      "locked",
+      serverMessage ?? "This time entry is approved or locked and cannot be changed.",
+      details
+    );
+  }
   if (status === 403) {
     return new KeitoError(
       "forbidden",
@@ -122,13 +134,6 @@ export function errorFromResponse(status: number, body: unknown, retryAfterSecon
       ...details,
       runningEntryId: typeof runningId === "string" || typeof runningId === "number" ? String(runningId) : undefined,
     });
-  }
-  if ((status === 409 || status === 422) && LOCK_PATTERN.test(`${code ?? ""} ${serverMessage ?? ""}`)) {
-    return new KeitoError(
-      "locked",
-      serverMessage ?? "This time entry is approved or locked and cannot be changed.",
-      details
-    );
   }
   if (status === 409) {
     return new KeitoError("conflict", serverMessage ?? "Keito reported a conflict.", details);

@@ -253,7 +253,8 @@
     "publish": "npm run test:run && npx @raycast/api@latest publish",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:live": "node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.live.config.ts"
+    "test:live": "node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.live.config.ts",
+    "test:live:write": "KEITO_LIVE_WRITE=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.live.config.ts src/services/keito/writes.live.ts"
   },
   "packageManager": "npm@11.15.0"
 }

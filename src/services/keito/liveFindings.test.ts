@@ -131,3 +131,24 @@ describe("workspace rules in the entry form", () => {
     });
   });
 });
+
+describe("live error shapes", () => {
+  it("treats Keito's 403 for locked time as a lock, and other 403s as permission errors", () => {
+    expect(
+      errorFromResponse(403, {
+        error: "forbidden",
+        error_description: "This time entry is locked and cannot be edited",
+      })
+    ).toMatchObject({
+      kind: "locked",
+      message: "This time entry is locked and cannot be edited",
+    });
+    expect(
+      errorFromResponse(403, {
+        error: "forbidden",
+        error_description: "This time entry is locked and cannot be restarted",
+      }).kind
+    ).toBe("locked");
+    expect(errorFromResponse(403, { error: "project_not_assigned" }).kind).toBe("forbidden");
+  });
+});

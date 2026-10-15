@@ -1,3 +1,19 @@
+# Keito Changelog
+
+## [Keito Port] - 2026-10-15
+
+- Added: Keito API v2 adapter (full-access integration key + Company ID), replacing the Harvest client
+- Added: "Keito Connection" setup checks for preferences, identity/company, project access, and task access
+- Added: "Reset Local Keito Data" command; caches and favorites are stored per Keito company and identity
+- Added: Running-timer conflict handling: Keito never replaces a running timer without confirmation
+- Added: Approval and lock state on time entries; approved or locked entries cannot be edited, restarted, or deleted
+- Added: "Entry Fields" preference for duration or start/end times (HH:mm)
+- Changed: Projects come from /projects and tasks from /tasks with project context
+- Changed: The status folder file uses a documented Keito payload (schema keito-raycast/current-timer@1)
+- Removed: Harvest web/app links, branding, and the "Company Default" time format (Keito has no company settings endpoint)
+
+The entries below describe the Harvest extension this port was derived from.
+
 # Harvest Changelog
 
 ## [Improved Project Filtering With Clients Included] - 2026-03-09

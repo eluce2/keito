@@ -64,9 +64,9 @@ function FavoriteForm({
   }, [projects, isLoadingProjects]);
 
   useEffect(() => {
-    if (isLoadingTasks || !projectId) return;
+    if (isLoadingTasks || !projectId || !tasks.length) return;
     if (taskId && tasks.some((t) => t.id === taskId)) return;
-    setTaskId(tasks[0]?.id ?? null);
+    setTaskId(tasks[0].id);
   }, [tasks, isLoadingTasks, projectId]);
 
   async function handleSubmit() {

@@ -113,7 +113,11 @@ export async function confirmReplaceRunning(running: TimeEntry | undefined): Pro
 export async function showKeitoError(error: unknown, fallbackTitle = "Keito request failed") {
   await invalidateSessionOnSetupError(error, store);
   // Log only the classification; error objects never include request headers.
-  console.error(isKeitoError(error) ? `Keito error: ${error.kind} (${error.status ?? "no status"})` : error);
+  console.error(
+    isKeitoError(error)
+      ? `Keito error: ${error.kind} (${error.status ?? "no status"})`
+      : `Keito error: ${errorMessage(error)}`
+  );
   const setup = isKeitoError(error) && error.isSetupProblem;
   await showToast({
     style: Toast.Style.Failure,

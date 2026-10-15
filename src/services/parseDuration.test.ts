@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import { parseDuration } from "./parseDuration";
+import { parseClockTime, parseDuration } from "./parseDuration";
 
 dayjs.extend(duration);
 dayjs.extend(customParseFormat);
@@ -72,5 +72,23 @@ describe("parseDuration", () => {
 
   it.each(INVALID_CASES)("returns null for invalid input: '%s'", (input) => {
     expect(parseDuration(input)).toBeNull();
+  });
+});
+
+describe("parseClockTime", () => {
+  it.each([
+    ["9", "09:00"],
+    ["0930", "09:30"],
+    ["13:05", "13:05"],
+    ["9:30am", "09:30"],
+    ["5pm", "17:00"],
+    ["12a", "00:00"],
+    ["noon", "12:00"],
+  ])("parses '%s' as %s", (input, expected) => {
+    expect(parseClockTime(input)).toBe(expected);
+  });
+
+  it.each(["", "24:00", "9:60", "13pm", "later"])("rejects '%s'", (input) => {
+    expect(parseClockTime(input)).toBeNull();
   });
 });

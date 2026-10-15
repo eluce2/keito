@@ -112,28 +112,29 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
     isLoading: isLoadingLastProject,
   } = useLocalStorage<{ projectId: string; taskId: string }>(scopedKey(session.scope, "lastProject"));
 
-  // New entries start from the last used project and task for this account.
+  // Choose the project once projects load: keep a valid selection (or an existing entry's project,
+  // even if archived), otherwise use this account's last project, otherwise the first project.
   useEffect(() => {
-    if (!source && lastProject && !projectId) {
+    if (isLoadingProjects || !projects.length || (!source && isLoadingLastProject)) return;
+    if (projectId && (byId.has(projectId) || source)) return;
+    if (!source && lastProject && byId.has(lastProject.projectId)) {
       setProjectId(lastProject.projectId);
       setTaskId(lastProject.taskId);
+      return;
     }
-  }, [lastProject]);
+    setProjectId(projects[0].id);
+  }, [projects, isLoadingProjects, isLoadingLastProject, lastProject]);
 
-  // Keep the selected project valid once projects load.
+  // Keep the selected task valid for the selected project. An empty list may still be loading,
+  // so only replace the task once the project's tasks are known.
   useEffect(() => {
-    if (isLoadingProjects || !projects.length) return;
-    if (projectId && byId.has(projectId)) return;
-    if (projectId && source) return; // keep an archived project on an existing entry so it can still be shown
-    setProjectId(projects[0]?.id ?? null);
-  }, [projects, isLoadingProjects]);
-
-  // Keep the selected task valid for the selected project.
-  useEffect(() => {
-    if (isLoadingTasks || !projectId) return;
+    if (isLoadingTasks || !projectId || !tasks.length) return;
     if (taskId && tasks.some((t) => t.id === taskId)) return;
-    setTaskId(tasks[0]?.id ?? null);
+    setTaskId(tasks[0].id);
   }, [tasks, isLoadingTasks, projectId]);
+
+  // Never submit a task that is not assigned to the selected project.
+  const selectedTaskId = taskId && tasks.some((t) => t.id === taskId) ? taskId : null;
 
   const selectedProject = projectId ? byId.get(projectId) : undefined;
 
@@ -150,7 +151,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
   async function handleSubmit() {
     const date = dayjs(spentDate).format("YYYY-MM-DD");
     const plan = planEntry(
-      { projectId, taskId, spentDate: date, notes, duration, startTime, endTime },
+      { projectId, taskId: selectedTaskId, spentDate: date, notes, duration, startTime, endTime },
       { mode, existing: entry, externalReference: template?.externalReference }
     );
 
@@ -191,7 +192,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
         await api.updateTimeEntry(plan.id, plan.body);
         hud = "Time Entry Updated";
       }
-      if (projectId && taskId) await setLastProject({ projectId, taskId });
+      if (projectId && selectedTaskId) await setLastProject({ projectId, taskId: selectedTaskId });
       await toast.hide();
       await onSave?.();
       await refreshMenuBar();
@@ -245,7 +246,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
       <Form.Dropdown
         id="task_id"
         title="Task"
-        value={taskId && tasks.some((t) => t.id === taskId) ? taskId : ""}
+        value={selectedTaskId ?? ""}
         error={errors.task}
         info="Only tasks assigned to the selected project are listed."
         onChange={(value) => {

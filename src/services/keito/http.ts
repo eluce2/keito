@@ -77,24 +77,28 @@ export class KeitoHttpClient {
   }
 
   /**
-   * Resolve an API path or a pagination link. Links may be relative ("/api/v2/…?page=2") or
-   * absolute; either way the result must stay on the configured API origin and path, so the
-   * credentials are never sent elsewhere.
+   * Resolve a link returned by Keito (e.g. links.next). Links may be relative ("/api/v2/…?page=2")
+   * or absolute, and are resolved with standard URL rules. The result must stay on the configured
+   * API origin and path, so the credentials are never sent elsewhere.
    */
-  resolveUrl(pathOrUrl: string, query?: Query): URL {
+  resolveLink(link: string): URL {
     const basePath = this.base.pathname.replace(/\/+$/, "");
-    let url: URL;
-    if (/^https?:\/\//i.test(pathOrUrl) || pathOrUrl.startsWith(`${basePath}/`)) {
-      url = new URL(pathOrUrl, this.base.origin);
-    } else {
-      url = new URL(`${basePath}/${pathOrUrl.replace(/^\/+/, "")}`, this.base.origin);
-    }
+    const url = new URL(link, `${this.base.origin}${basePath}/`);
     if (url.origin !== this.base.origin || !url.pathname.startsWith(`${basePath}/`)) {
       throw new KeitoError(
         "unexpected_response",
         "Keito returned a link outside the configured API address; the request was not sent."
       );
     }
+    return url;
+  }
+
+  /** Resolve an endpoint path such as "/time_entries" (or a full link) and apply query values. */
+  resolveUrl(pathOrUrl: string, query?: Query): URL {
+    const basePath = this.base.pathname.replace(/\/+$/, "");
+    const url = /^https?:\/\//i.test(pathOrUrl)
+      ? this.resolveLink(pathOrUrl)
+      : this.resolveLink(`${basePath}/${pathOrUrl.replace(/^\/+/, "")}`);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value === undefined || value === null) continue;
       url.searchParams.set(key, String(value));
@@ -212,7 +216,7 @@ export class KeitoHttpClient {
 
       const link: string | null | undefined = data.links?.next;
       if (link) {
-        next = this.resolveUrl(link).toString();
+        next = this.resolveLink(link).toString();
       } else if (data.links === undefined && data.page && data.total_pages && data.page < data.total_pages) {
         // Fallback for envelopes without links: advance the page number on the same URL.
         const url: URL = new URL(next);

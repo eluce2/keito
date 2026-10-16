@@ -2,7 +2,7 @@
 
 The user-facing documentation is in [README.md](README.md), which the Raycast Store shows as "About This Extension". This file covers how the extension works, how to test it, and how to publish it.
 
-This extension is a port of the Harvest Raycast extension by eluce2 (contributors: bchopson, mrpunkin). [HARVEST-README.md](HARVEST-README.md) describes the original extension, and Git history has its changelog. It talks to the Keito API v2 at `https://app.keito.ai/api/v2` through a small typed adapter in [`src/services/keito`](src/services/keito).
+This extension is a port of the Harvest Raycast extension by eluce2. [HARVEST-README.md](HARVEST-README.md) describes the original extension, and Git history has its changelog. It talks to the Keito API v2 at `https://app.keito.ai/api/v2` through a small typed adapter in [`src/services/keito`](src/services/keito).
 
 ## Commands
 
@@ -92,7 +92,7 @@ The extension icon shows the Keito mark in white on Keito's brand colour `#5046E
 
 Before the first submission:
 
-1. Add 3–6 screenshots to `metadata/`, using Raycast's Window Capture → **Save to Metadata** (2000×1250 PNG). Use the same background throughout and show no other apps or sensitive data.
+1. Add 3–6 screenshots to `metadata/` (recommended, not required), using Raycast's Window Capture → **Save to Metadata** (2000×1250 PNG). Use the same background throughout and show no other apps or sensitive data.
 2. Make sure `CHANGELOG.md` has an entry dated `{PR_MERGE_DATE}`.
 3. Run `npm run check:publish`.
 

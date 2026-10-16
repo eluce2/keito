@@ -5,13 +5,8 @@
   "description": "Track time in Keito: start, stop, and switch timers, log and edit entries, keep favorites, and see your running timer in the menu bar.",
   "icon": "keito-icon-5046e5.png",
   "author": "eluce2",
-  "contributors": [
-    "bchopson",
-    "mrpunkin"
-  ],
   "platforms": [
-    "macOS",
-    "Windows"
+    "macOS"
   ],
   "categories": [
     "Productivity"

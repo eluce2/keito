@@ -56,8 +56,9 @@ if (!/^## \[[^\]]+\] - \{PR_MERGE_DATE\}/m.test(changelog)) {
   problems.push("CHANGELOG.md needs a new entry like `## [Title] - {PR_MERGE_DATE}`");
 }
 const screenshots = files.filter((f) => f.startsWith(`metadata${path.sep}`) && f.endsWith(".png"));
+// Raycast recommends at least three screenshots but doesn't require them, so this only warns.
 if (screenshots.length < 3) {
-  problems.push(`metadata/ has ${screenshots.length} screenshot(s); add 3–6 (2000×1250 PNG, Raycast Window Capture → Save to Metadata)`);
+  console.warn(`Warning: metadata/ has ${screenshots.length} screenshot(s); add 3–6 (2000×1250 PNG, Raycast Window Capture → Save to Metadata)`);
 }
 
 if (problems.length) {

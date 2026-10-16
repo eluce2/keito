@@ -80,4 +80,4 @@ If you set **Status Folder** on the Running Timer command, the menu bar writes `
 
 ## Credits
 
-Based on the Harvest extension by eluce2, with contributions from bchopson and mrpunkin.
+Based on the Harvest extension by eluce2.

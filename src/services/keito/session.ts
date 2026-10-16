@@ -65,13 +65,14 @@ export interface ResolvedSession {
  * credentials changed, the stored session is stale, or a fresh check is requested.
  */
 export async function resolveSession(
-  credentials: KeitoCredentials,
+  /** API key credentials, or a precomputed fingerprint (OAuth: see oauthFingerprint). */
+  credentials: KeitoCredentials | string,
   fetchIdentity: () => Promise<KeitoIdentity>,
   store: KeyValueStore,
   options: { force?: boolean; now?: Date; maxAgeMs?: number } = {}
 ): Promise<ResolvedSession> {
   const now = options.now ?? new Date();
-  const fingerprint = credentialFingerprint(credentials);
+  const fingerprint = typeof credentials === "string" ? credentials : credentialFingerprint(credentials);
   const stored = await readSession(store);
   const age = stored ? now.getTime() - Date.parse(stored.verifiedAt) : Infinity;
 

@@ -1,4 +1,4 @@
-import { KEITO_API_BASE_URL, KeitoCredentials } from "./config";
+import { KEITO_API_BASE_URL } from "./config";
 import { errorFromResponse, KeitoError } from "./errors";
 import { RawPaginationEnvelope } from "./types";
 
@@ -16,7 +16,27 @@ export type FetchLike = (
 export type QueryValue = string | number | boolean | undefined | null;
 export type Query = Record<string, QueryValue>;
 
-export interface KeitoHttpOptions extends KeitoCredentials {
+/** Supplies auth headers for each request. Headers never appear in errors or logs. */
+export interface KeitoAuthProvider {
+  kind: "api_key" | "oauth";
+  headers(): Promise<Record<string, string>>;
+  /** Called once after a 401. Return true to retry with fresh headers (e.g. after a token refresh). */
+  onUnauthorized?(): Promise<boolean>;
+}
+
+/** API key auth: Bearer kto_… key plus the Company ID header. */
+export function apiKeyAuth(token: string, accountId: string): KeitoAuthProvider {
+  return {
+    kind: "api_key",
+    headers: async () => ({ Authorization: `Bearer ${token}`, "Keito-Account-Id": accountId }),
+  };
+}
+
+export interface KeitoHttpOptions {
+  /** Either an auth provider, or an API key and Company ID. */
+  auth?: KeitoAuthProvider;
+  token?: string;
+  accountId?: string;
   baseUrl?: string;
   fetch?: FetchLike;
   sleep?: (ms: number) => Promise<void>;
@@ -63,7 +83,12 @@ export class KeitoHttpClient {
     Pick<KeitoHttpOptions, "maxRetries" | "maxRetryWaitSeconds" | "timeoutMs" | "maxPages" | "perPage">
   >;
 
+  private readonly auth: KeitoAuthProvider;
+
   constructor(private readonly config: KeitoHttpOptions) {
+    if (config.auth) this.auth = config.auth;
+    else if (config.token && config.accountId) this.auth = apiKeyAuth(config.token, config.accountId);
+    else throw new KeitoError("missing_credentials", "No Keito credentials were configured.");
     this.base = new URL((config.baseUrl ?? KEITO_API_BASE_URL).replace(/\/+$/, ""));
     this.fetchImpl = config.fetch ?? (globalThis.fetch as unknown as FetchLike);
     this.sleep = config.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -112,14 +137,18 @@ export class KeitoHttpClient {
     { query, body }: { query?: Query; body?: unknown } = {}
   ): Promise<KeitoResponse<T>> {
     const url = this.resolveUrl(pathOrUrl, query).toString();
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.config.token}`,
-      "Keito-Account-Id": this.config.accountId,
-      Accept: "application/json",
-      "User-Agent": USER_AGENT,
-    };
     const payload = body === undefined ? undefined : JSON.stringify(body);
-    if (payload !== undefined) headers["Content-Type"] = "application/json";
+    const buildHeaders = async () => {
+      const headers: Record<string, string> = {
+        ...(await this.auth.headers()),
+        Accept: "application/json",
+        "User-Agent": USER_AGENT,
+      };
+      if (payload !== undefined) headers["Content-Type"] = "application/json";
+      return headers;
+    };
+    let headers = await buildHeaders();
+    let reauthorized = false;
 
     // Writes are retried only for 429, which Keito rejects before processing. Retrying a write after
     // a 5xx or a dropped connection could create a duplicate entry.
@@ -169,6 +198,22 @@ export class KeitoHttpClient {
           status: response.status,
           features: parseFeatures(response.headers.get("x-keito-features")),
         };
+      }
+
+      // A 401 is rejected before processing, so one retry after refreshing the token is safe,
+      // including for writes.
+      if (response.status === 401 && !reauthorized && this.auth.onUnauthorized) {
+        reauthorized = true;
+        if (await this.auth.onUnauthorized()) {
+          headers = await buildHeaders();
+          attempt--;
+          continue;
+        }
+      }
+      if (response.status === 401 && this.auth.kind === "oauth") {
+        throw new KeitoError("signed_out", "Your Keito sign-in has expired or was revoked. Sign in again.", {
+          status: 401,
+        });
       }
 
       const retryAfter = parseRetryAfter(response.headers.get("retry-after"));

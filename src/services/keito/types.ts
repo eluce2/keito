@@ -111,7 +111,7 @@ export interface RawTimeEntry {
 
 // Normalized domain shapes used by the UI. IDs are always strings.
 
-export type CredentialType = "full_access" | "read_only_sync";
+export type CredentialType = "full_access" | "read_only_sync" | "oauth";
 
 export interface KeitoIdentity {
   userId: KeitoId;

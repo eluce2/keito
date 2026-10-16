@@ -29,7 +29,9 @@ export class KeitoApi {
   /** GET /users/me — verifies the key, the Company ID, and the credential type. */
   async getIdentity(): Promise<KeitoIdentity> {
     const { data, features } = await this.http.request<RawCurrentUser>("GET", "/users/me");
-    return normalizeIdentity(data ?? {}, this.options.accountId, features);
+    return this.options.auth?.kind === "oauth"
+      ? normalizeIdentity(data ?? {}, undefined, features, "oauth")
+      : normalizeIdentity(data ?? {}, this.options.accountId, features);
   }
 
   /** Active projects visible to the bound identity. */

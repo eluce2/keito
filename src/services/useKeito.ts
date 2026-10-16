@@ -14,17 +14,25 @@ import {
 import { useCachedPromise, usePromise } from "@raycast/utils";
 import { useMemo } from "react";
 import { KeitoApi } from "./keito/api";
-import { validateCredentials } from "./keito/config";
+import { AuthConfig, resolveAuthConfig } from "./keito/config";
 import { errorMessage, errorTitle, isKeitoError } from "./keito/errors";
 import { formatHours as formatHoursValue, TimeFormat } from "./keito/normalize";
-import { invalidateSessionOnSetupError, KeyValueStore, resolveSession, ResolvedSession } from "./keito/session";
+import {
+  invalidateSessionOnSetupError,
+  KeyValueStore,
+  resolveSession,
+  ResolvedSession,
+  SESSION_KEY,
+} from "./keito/session";
+import { oauthFingerprint } from "./keito/oauth";
+import { keitoOAuth } from "./keitoOAuth";
 import { Project, TimeEntry } from "./keito/types";
 import { WorkflowContext } from "./keito/workflows";
 import { EntryModePreference, todayIn } from "./keito/dates";
 
 export interface KeitoPreferences {
-  token: string;
-  accountID: string;
+  token?: string;
+  accountID?: string;
   timeFormat?: TimeFormat;
   entryMode?: EntryModePreference;
   titleDisplay?: "project" | "task";
@@ -38,15 +46,29 @@ export function getKeitoPreferences(): KeitoPreferences {
 
 export const store: KeyValueStore = LocalStorage;
 
+export function getAuthConfig(): AuthConfig {
+  return resolveAuthConfig(getKeitoPreferences());
+}
+
+/**
+ * Whether this launch may open Keito's sign-in in the browser: only when the user started a view
+ * or no-view command. Background refreshes and the menu bar never start a sign-in.
+ */
+export function canSignInInteractively(): boolean {
+  return environment.launchType === LaunchType.UserInitiated && environment.commandMode !== "menu-bar";
+}
+
 let cachedApi: { key: string; api: KeitoApi } | undefined;
 
 /** Build the API client from preferences. Throws a setup KeitoError when preferences are invalid. */
 export function getApi(): KeitoApi {
-  const credentials = validateCredentials(getKeitoPreferences());
-  const key = `${credentials.accountId}\n${credentials.token}`;
+  const auth = getAuthConfig();
+  const key = auth.kind === "api_key" ? `${auth.accountId}\n${auth.token}` : "oauth";
   if (cachedApi?.key === key) return cachedApi.api;
   const api = new KeitoApi({
-    ...credentials,
+    ...(auth.kind === "api_key"
+      ? { token: auth.token, accountId: auth.accountId }
+      : { auth: keitoOAuth.provider({ interactive: canSignInInteractively() }) }),
     onRateLimited: (seconds) => {
       if (environment.launchType === LaunchType.UserInitiated) {
         showToast({
@@ -62,9 +84,17 @@ export function getApi(): KeitoApi {
 }
 
 export async function getSession(options: { force?: boolean } = {}): Promise<ResolvedSession> {
-  const credentials = validateCredentials(getKeitoPreferences());
+  const auth = getAuthConfig();
   const api = getApi();
   try {
+    let credentials: { token: string; accountId: string } | string;
+    if (auth.kind === "oauth") {
+      // Make sure someone is signed in (or sign in now) before trusting a stored identity.
+      await keitoOAuth.getAccessToken({ interactive: canSignInInteractively() });
+      credentials = oauthFingerprint(await keitoOAuth.getTokens());
+    } else {
+      credentials = { token: auth.token, accountId: auth.accountId };
+    }
     return await resolveSession(credentials, () => api.getIdentity(), store, options);
   } catch (error) {
     await invalidateSessionOnSetupError(error, store);
@@ -110,7 +140,13 @@ export async function confirmReplaceRunning(running: TimeEntry | undefined): Pro
   });
 }
 
-/** Show a failure toast. Setup problems also clear the stored identity and offer a link to preferences. */
+/** Sign out of Keito OAuth and forget the verified identity. API key preferences are untouched. */
+export async function signOut() {
+  await keitoOAuth.signOut();
+  await store.removeItem(SESSION_KEY);
+}
+
+/** Show a failure toast. Setup problems also clear the stored identity and offer a way to fix them. */
 export async function showKeitoError(error: unknown, fallbackTitle = "Keito request failed") {
   await invalidateSessionOnSetupError(error, store);
   // Log only the classification; error objects never include request headers.
@@ -124,9 +160,15 @@ export async function showKeitoError(error: unknown, fallbackTitle = "Keito requ
     style: Toast.Style.Failure,
     title: isKeitoError(error) ? errorTitle(error) : fallbackTitle,
     message: errorMessage(error),
-    primaryAction: setup
-      ? { title: "Open Extension Preferences", onAction: () => openExtensionPreferences() }
-      : undefined,
+    primaryAction:
+      isKeitoError(error) && error.kind === "signed_out"
+        ? {
+            title: "Sign In to Keito",
+            onAction: () => launchCommand({ name: "connection", type: LaunchType.UserInitiated }),
+          }
+        : setup
+        ? { title: "Open Extension Preferences", onAction: () => openExtensionPreferences() }
+        : undefined,
   });
 }
 

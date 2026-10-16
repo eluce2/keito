@@ -140,18 +140,18 @@
   "preferences": [
     {
       "name": "token",
-      "title": "Keito Integration API Key",
-      "description": "Full-access integration key (kto_…) that a Keito Administrator created and bound to you. Personal read-only sync keys cannot track time.",
-      "required": true,
+      "title": "Keito Integration API Key (optional)",
+      "description": "Leave blank to sign in with your Keito account in the browser. Or enter a full-access integration key (kto_…) that a Keito Administrator created for you.",
+      "required": false,
       "link": "https://keito.ai/docs/auth/api-keys",
       "type": "password",
       "placeholder": "kto_…"
     },
     {
       "name": "accountID",
-      "title": "Keito Company ID",
-      "required": true,
-      "description": "Shown in Keito under Settings → API & Developers → Company ID.",
+      "title": "Keito Company ID (optional)",
+      "required": false,
+      "description": "Only needed with an integration key: Settings → API & Developers → Company ID. Leave blank to sign in with Keito.",
       "link": "https://keito.ai/docs/auth/api-keys",
       "type": "textfield"
     },

@@ -2,11 +2,11 @@ import { Action, ActionPanel, Cache, Color, Icon, List, showToast, Toast } from 
 import { usePromise } from "@raycast/utils";
 import { useState } from "react";
 import { SetupActions } from "./components/KeitoGate";
-import { validateCredentials } from "./services/keito/config";
 import { errorMessage, errorTitle } from "./services/keito/errors";
 import { resetLocalData } from "./services/keito/session";
 import { KeitoIdentity } from "./services/keito/types";
-import { getApi, getKeitoPreferences, getSession, refreshMenuBar, store } from "./services/useKeito";
+import { getApi, getAuthConfig, getSession, refreshMenuBar, signOut, store } from "./services/useKeito";
+import { keitoOAuth } from "./services/keitoOAuth";
 
 type CheckStatus = "pass" | "fail" | "skipped";
 
@@ -34,11 +34,20 @@ async function runChecks(run: number): Promise<Report> {
   const skip = (id: string, title: string) =>
     checks.push({ id, title, status: "skipped", detail: "Fix the step above first." });
 
+  let oauth = false;
   try {
-    validateCredentials(getKeitoPreferences());
-    checks.push({ id: "prefs", title: "Preferences", status: "pass", detail: "API key and Company ID are present." });
+    oauth = getAuthConfig().kind === "oauth";
+    if (oauth) await keitoOAuth.getAccessToken({ interactive: true });
+    checks.push({
+      id: "prefs",
+      title: oauth ? "Keito sign-in" : "Preferences",
+      status: "pass",
+      detail: oauth
+        ? "Signed in with your Keito account (OAuth). Tokens are kept in Raycast's encrypted storage and refreshed automatically."
+        : "Using the integration key and Company ID from the extension preferences.",
+    });
   } catch (error) {
-    checks.push(failure("prefs", "Preferences", error));
+    checks.push(failure("prefs", oauth ? "Keito sign-in" : "Preferences", error));
     skip("identity", "Identity and company");
     skip("projects", "Project access");
     skip("tasks", "Task access");
@@ -112,7 +121,45 @@ const statusIcon: Record<CheckStatus, { source: Icon; tintColor: Color }> = {
 
 export default function Command() {
   const [run, setRun] = useState(0);
-  const { data, isLoading, error } = usePromise(runChecks, [run]);
+  const [signedOut, setSignedOut] = useState(false);
+  const { data, isLoading, error } = usePromise(runChecks, [run], { execute: !signedOut });
+  const oauth = (() => {
+    try {
+      return getAuthConfig().kind === "oauth";
+    } catch {
+      return false;
+    }
+  })();
+
+  async function handleSignOut() {
+    await signOut();
+    new Cache().clear();
+    await refreshMenuBar();
+    setSignedOut(true);
+    await showToast({ style: Toast.Style.Success, title: "Signed out of Keito" });
+  }
+
+  function signIn() {
+    setSignedOut(false);
+    setRun((n) => n + 1);
+  }
+
+  if (signedOut) {
+    return (
+      <List navigationTitle="Keito Connection">
+        <List.EmptyView
+          icon={Icon.Person}
+          title="Signed Out"
+          description="Sign in with your Keito account to track time from Raycast."
+          actions={
+            <ActionPanel>
+              <Action title="Sign in with Keito" icon={Icon.Person} onAction={signIn} />
+            </ActionPanel>
+          }
+        />
+      </List>
+    );
+  }
   const identity = data?.identity;
   const allPassed = data?.checks.every((c) => c.status === "pass");
 
@@ -132,6 +179,15 @@ export default function Command() {
     <ActionPanel>
       <Action title="Verify Connection Again" icon={Icon.ArrowClockwise} onAction={() => setRun((n) => n + 1)} />
       <SetupActions />
+      {oauth && (
+        <Action
+          title="Sign out of Keito"
+          icon={Icon.Logout}
+          style={Action.Style.Destructive}
+          shortcut={{ modifiers: ["cmd", "shift"], key: "l" }}
+          onAction={handleSignOut}
+        />
+      )}
       <Action
         title="Clear Cached Keito Data"
         icon={Icon.Trash}
@@ -186,7 +242,12 @@ export default function Command() {
                     <List.Item.Detail.Metadata.Separator />
                     <List.Item.Detail.Metadata.Label title="Company" text={identity.companyName ?? "—"} />
                     <List.Item.Detail.Metadata.Label title="Company ID" text={identity.companyId} />
-                    <List.Item.Detail.Metadata.Label title="Credential" text="Full-access integration key" />
+                    <List.Item.Detail.Metadata.Label
+                      title="Credential"
+                      text={
+                        identity.credentialType === "oauth" ? "Keito sign-in (OAuth)" : "Full-access integration key"
+                      }
+                    />
                     <List.Item.Detail.Metadata.Separator />
                     <List.Item.Detail.Metadata.Label
                       title="Workspace timezone"

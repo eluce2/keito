@@ -6,35 +6,48 @@ This extension is a port of the Harvest Raycast extension by eluce2 (contributor
 
 ## Setup
 
-You need two values from Keito, entered in the extension preferences. Raycast asks for them the first time you open a command.
+### Sign in with Keito (default)
+
+Open any Keito command and choose **Sign in with Keito**. Raycast opens Keito's sign-in page in your browser and returns to Raycast when you're done. Leave both preference fields blank to use this method.
+
+- **Flow:** OAuth through WorkOS Connect, using the authorization code flow with S256 PKCE for a public client, so there's no client secret. Raycast generates `state` and the PKCE values. The extension adds a fresh random `nonce` to each sign-in and checks it against the returned ID token.
+- **Endpoints and scopes:** `https://auth.keito.ai/oauth2/authorize` and `/oauth2/token`, with scopes `openid profile email offline_access`. The redirect is Raycast's static web redirect, `https://raycast.com/redirect?packageName=Extension`.
+- **Token storage and refresh:** tokens live in Raycast's encrypted OAuth token storage. Access tokens last 5 minutes and are refreshed 30 seconds before they expire. Refresh tokens rotate, and each replacement is saved. Only one refresh runs at a time. If another Raycast command, such as the menu bar, rotated the token first, the extension uses that command's tokens instead of signing you out.
+- **Workspace:** API requests send `Authorization: Bearer <access token>` and no `Keito-Account-Id`, because Keito determines the workspace from the token. Your normal Keito permissions apply.
+- **When sign-in is needed:** only commands you open yourself start a sign-in. The menu bar and background refreshes never do. They show **Sign In to Keito…** instead.
+- **Signing out:** **Keito Connection → Sign out of Keito** (⌘⇧L) removes the tokens from Raycast. It doesn't revoke the sign-in on Keito's side.
+
+### Integration key (alternative)
+
+Alternatively, enter both values in the extension preferences. This is useful when you track time as an Agent identity.
 
 | Preference | Where to find it |
 | --- | --- |
-| **Keito Integration API Key** | A **full-access integration key** (`kto_…`). A workspace Administrator creates it under **Settings → API & Developers → Integration keys**, selects *you* as the identity, and chooses **All permitted operations**. |
+| **Keito Integration API Key** | A **full-access integration key** (`kto_…`). A workspace Administrator creates it under **Settings → API & Developers → Integration keys**, selects *you* as the identity, and chooses **All permitted operations**. Keys can only be created in the web app; the API has no endpoint for it. |
 | **Keito Company ID** | **Settings → API & Developers → Company ID** |
 
-Use a key bound to the person whose time you track. Keito keys act as their bound identity, with that identity's current permissions and project assignments. A key an Administrator creates under *My account* would log time as the Administrator.
+Use a key bound to the person whose time you track. Keito keys act as their bound identity, with that identity's current permissions and project assignments. A key an Administrator creates under *My account* would log time as the Administrator. A **personal read-only sync key does not work**: it can't list tasks or change time. The extension detects that key type and explains why. Filling in only one of the two fields is reported as an error.
 
-A **personal read-only sync key does not work**. It cannot list tasks or start, stop, create, edit, or delete time, and no setting upgrades it. The extension detects this key type and asks for a full-access key. OAuth and partner tokens are not supported.
+### Keito Connection
 
-After entering the values, run **Keito Connection**. It checks, in order:
+**Keito Connection** checks, in order:
 
-1. The preferences are present and look like a Keito key and Company ID.
-2. `GET /users/me` accepts the key, and the company it resolves to matches the Company ID.
+1. You are signed in, or the integration key and Company ID look valid.
+2. `GET /users/me` returns your identity and company. With a key, the company must match the Company ID.
 3. You can see at least one active project.
-4. You can read tasks for a project. This confirms a full-access key.
+4. You can read tasks for a project.
 
 It also shows the workspace settings that `/users/me` reports: timezone, entry format, required notes, past timer starts, and rounding. The extension uses them in several places. **Today** is the date in the workspace timezone, not your Mac's. The default entry fields follow the company format. Notes are required when the workspace requires them. Projects where you can't track time are hidden.
 
-Every other command runs the same identity check first. If the key is missing, malformed, revoked, read-only, or for another company, the command shows the reason and a shortcut to the preferences instead of a broken view.
+Every other command runs the same identity check first. If you're signed out, or the key is malformed, revoked, read-only, or for another company, the command shows the reason and a fix instead of a broken view.
 
-Credentials stay in Raycast's preferences. They are sent only to `https://app.keito.ai/api/v2`, only in the `Authorization` and `Keito-Account-Id` headers. They never appear in URLs, logs, toasts, or the status file. Pagination links are followed only on that origin and path.
+Tokens and keys are sent only to `https://app.keito.ai/api/v2`, only in request headers. OAuth tokens also go to Keito's token endpoint. They never appear in URLs, logs, toasts, or the status file. Pagination links are followed only on the API origin and path.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| **Keito Connection** | Setup checks, the identity and company in use, Keito feature flags, and clearing cached data |
+| **Keito Connection** | Sign in or out, setup checks, the identity and company in use, workspace settings, and clearing cached data |
 | **New Time Entry** | Start a timer (leave the duration blank) or log completed time |
 | **Today's Timesheet** | Your entries for a day. Use ⌘← / ⌘→ to change days. Stop, restart, edit, duplicate, delete, or start a past entry again today |
 | **Favorites** | Saved project/task/notes combinations that start a timer or log a fixed duration |

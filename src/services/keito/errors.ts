@@ -9,6 +9,7 @@ export type KeitoErrorKind =
   | "read_only_key"
   | "company_mismatch"
   | "tracking_not_allowed"
+  | "signed_out"
   | "forbidden"
   | "not_found"
   | "running_timer_conflict"
@@ -57,6 +58,7 @@ export class KeitoError extends Error {
       "read_only_key",
       "company_mismatch",
       "tracking_not_allowed",
+      "signed_out",
     ].includes(this.kind);
   }
 }
@@ -172,6 +174,8 @@ export function errorTitle(error: unknown): string {
       return "Company ID Mismatch";
     case "tracking_not_allowed":
       return "Time Tracking Not Allowed";
+    case "signed_out":
+      return "Sign In to Keito";
     case "forbidden":
       return "Not Allowed";
     case "not_found":

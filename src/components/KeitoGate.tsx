@@ -5,11 +5,12 @@ import { errorMessage, errorTitle, isKeitoError } from "../services/keito/errors
 import { ResolvedSession } from "../services/keito/session";
 import { useKeitoSession } from "../services/useKeito";
 
-export function SetupActions({ onRetry }: { onRetry?: () => void }) {
+export function SetupActions({ onRetry, signedOut }: { onRetry?: () => void; signedOut?: boolean }) {
   return (
     <>
+      {signedOut && onRetry && <Action title="Sign in with Keito" icon={Icon.Person} onAction={onRetry} />}
       <Action title="Open Extension Preferences" icon={Icon.Gear} onAction={openExtensionPreferences} />
-      {onRetry && (
+      {onRetry && !signedOut && (
         <Action
           title="Verify Connection Again"
           icon={Icon.ArrowClockwise}
@@ -33,7 +34,7 @@ export function ConnectionErrorView({ error, onRetry }: { error: unknown; onRetr
         description={errorMessage(error)}
         actions={
           <ActionPanel>
-            <SetupActions onRetry={onRetry} />
+            <SetupActions onRetry={onRetry} signedOut={isKeitoError(error) && error.kind === "signed_out"} />
           </ActionPanel>
         }
       />
@@ -42,9 +43,9 @@ export function ConnectionErrorView({ error, onRetry }: { error: unknown; onRetr
 }
 
 /**
- * Verifies preferences and identity before rendering a command. Every view command goes through
- * this, so missing, malformed, rejected, read-only, or mismatched credentials show setup guidance
- * instead of a broken view.
+ * Signs in (OAuth) or checks the API key preferences, then verifies the identity before rendering a
+ * command. Every view command goes through this, so signed-out, rejected, read-only, or mismatched
+ * credentials show setup guidance instead of a broken view.
  */
 export function KeitoGate({ children }: { children: (session: ResolvedSession) => ReactNode }) {
   const [attempt, setAttempt] = useState(0);

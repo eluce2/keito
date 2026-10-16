@@ -44,8 +44,10 @@ const APPROVAL_STATUSES: ApprovalStatus[] = ["unsubmitted", "submitted", "approv
  */
 export function normalizeIdentity(
   raw: RawCurrentUser,
-  configuredAccountId: string,
-  features: string[] = []
+  /** Company ID from preferences; undefined for OAuth, where Keito resolves the company from the token. */
+  configuredAccountId: string | undefined,
+  features: string[] = [],
+  credentialType: "full_access" | "oauth" = "full_access"
 ): KeitoIdentity {
   const userId = toId(raw?.id);
   if (!userId) throw new KeitoError("unexpected_response", "Keito's /users/me response did not include a user ID.");
@@ -67,7 +69,7 @@ export function normalizeIdentity(
       "Keito's /users/me response did not include a company. The key may not be a full-access integration key."
     );
   }
-  if (companyId !== configuredAccountId) {
+  if (configuredAccountId !== undefined && companyId !== configuredAccountId) {
     throw new KeitoError(
       "company_mismatch",
       "The key resolved to a different Keito company than the Company ID in preferences. Check both values in Settings → API & Developers."
@@ -90,7 +92,7 @@ export function normalizeIdentity(
     userType: optionalText(raw.user_type),
     companyId,
     companyName: optionalText(raw.company?.name),
-    credentialType: "full_access",
+    credentialType,
     features,
     settings: {
       timezone: optionalText(company.timezone),

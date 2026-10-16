@@ -1,5 +1,11 @@
 # Keito Changelog
 
+## [Sign in with Keito] - 2026-10-16
+
+- Added: Sign in with your Keito account (OAuth via WorkOS Connect, PKCE, no client secret). This is now the default; the integration key and Company ID preferences are optional.
+- Added: Automatic access-token refresh with refresh-token rotation, safe across concurrently running commands
+- Added: "Sign out of Keito" in Keito Connection
+
 ## [Keito Port] - 2026-10-15
 
 - Added: Keito API v2 adapter (full-access integration key + Company ID), replacing the Harvest client

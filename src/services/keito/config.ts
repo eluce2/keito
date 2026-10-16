@@ -46,3 +46,22 @@ export function validateCredentials(input: { token?: string; accountID?: string 
   }
   return { token, accountId };
 }
+
+export type AuthConfig = { kind: "oauth" } | ({ kind: "api_key" } & KeitoCredentials);
+
+/**
+ * Both fields blank means "sign in with Keito" (OAuth). Filling in both uses an integration key.
+ * Filling in only one is a mistake worth reporting.
+ */
+export function resolveAuthConfig(input: { token?: string; accountID?: string }): AuthConfig {
+  const token = (input.token ?? "").trim();
+  const accountId = (input.accountID ?? "").trim();
+  if (!token && !accountId) return { kind: "oauth" };
+  if (!token || !accountId) {
+    throw new KeitoError(
+      "malformed_credentials",
+      "To use an integration key, enter both the key and the Company ID in the extension preferences. To sign in with Keito in your browser instead, leave both fields blank."
+    );
+  }
+  return { kind: "api_key", ...validateCredentials(input) };
+}

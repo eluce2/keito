@@ -3,7 +3,7 @@ import { useCachedPromise, usePromise } from "@raycast/utils";
 import dayjs from "dayjs";
 import { useEffect } from "react";
 import { KEITO_WEB_URL } from "./services/keito/config";
-import { errorMessage, errorTitle } from "./services/keito/errors";
+import { errorMessage, errorTitle, isKeitoError } from "./services/keito/errors";
 import { syncStatusFile } from "./services/keito/statusFile";
 import { TimeEntry } from "./services/keito/types";
 import { describeEntry, formatHours, getApi, getSession, showKeitoError, todayString } from "./services/useKeito";
@@ -70,7 +70,13 @@ export default function MenuBar() {
         tooltip="Keito"
       >
         <MenuBarExtra.Item title={errorTitle(problem)} subtitle={errorMessage(problem).slice(0, 80)} />
-        <MenuBarExtra.Item title="Open Keito Connection…" icon={Icon.Key} onAction={() => launch("connection")} />
+        <MenuBarExtra.Item
+          title={
+            isKeitoError(problem) && problem.kind === "signed_out" ? "Sign In to Keito…" : "Open Keito Connection…"
+          }
+          icon={Icon.Key}
+          onAction={() => launch("connection")}
+        />
         <MenuBarExtra.Item
           title="Retry"
           icon={Icon.ArrowClockwise}

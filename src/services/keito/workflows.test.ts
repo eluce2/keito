@@ -74,7 +74,7 @@ describe("startTimer", () => {
     });
     const result = await startTimer(
       ctx(api, async () => false),
-      startInput
+      startInput,
     );
     expect(result).toMatchObject({ status: "cancelled", running: { id: "cmrunning" } });
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
@@ -111,7 +111,7 @@ describe("restartEntry", () => {
     });
     const result = await restartEntry(
       ctx(api, async () => true),
-      stopped
+      stopped,
     );
     expect(result.status).toBe("started");
     const restarts = calls.filter((c) => c.url.pathname.endsWith("/restart"));
@@ -294,7 +294,7 @@ describe("planEntry (entry form)", () => {
 
   it("sends only changed fields when editing, never duration for a running timer", () => {
     const existing = normalizeTimeEntry(
-      rawEntry({ id: "e1", project: { id: "p", name: "P" }, task: { id: "t", name: "T" }, notes: "a", hours: 1.3333 })
+      rawEntry({ id: "e1", project: { id: "p", name: "P" }, task: { id: "t", name: "T" }, notes: "a", hours: 1.3333 }),
     );
     expect(planEntry({ ...base, notes: "a", duration: "1:20" }, { mode: "duration", existing })).toMatchObject({
       kind: "error",
@@ -307,7 +307,7 @@ describe("planEntry (entry form)", () => {
     });
     const running = { ...existing, isRunning: true };
     expect(
-      planEntry({ ...base, taskId: "t2", notes: "a", duration: "5" }, { mode: "duration", existing: running })
+      planEntry({ ...base, taskId: "t2", notes: "a", duration: "5" }, { mode: "duration", existing: running }),
     ).toEqual({
       kind: "update",
       id: "e1",

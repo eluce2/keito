@@ -81,7 +81,7 @@ export function normalizeFavoriteHours(input: string): string | undefined | null
  */
 export function favoriteAvailability(
   favorite: Favorite,
-  projects: Project[] | undefined
+  projects: Project[] | undefined,
 ): { available: boolean; reason?: string } {
   if (!projects) return { available: true };
   if (!projects.some((p) => p.id === favorite.projectId)) {

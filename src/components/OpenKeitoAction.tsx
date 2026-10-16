@@ -1,4 +1,4 @@
-import { Action, Application, getApplications, Icon } from "@raycast/api";
+import { Action, Application, getApplications, Icon, Keyboard } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { KEITO_WEB_URL } from "../services/keito/config";
 
@@ -16,7 +16,7 @@ export function OpenKeitoAction() {
         target={app.path}
         application={app}
         icon={Icon.AppWindow}
-        shortcut={{ key: "o", modifiers: ["cmd"] }}
+        shortcut={Keyboard.Shortcut.Common.Open}
       />
     );
   }
@@ -25,7 +25,7 @@ export function OpenKeitoAction() {
       title="Open Keito in Browser"
       url={KEITO_WEB_URL}
       icon={Icon.Globe}
-      shortcut={{ key: "o", modifiers: ["cmd"] }}
+      shortcut={Keyboard.Shortcut.Common.Open}
     />
   );
 }

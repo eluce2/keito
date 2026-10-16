@@ -16,8 +16,7 @@ export interface WorkflowContext {
 }
 
 export type StartResult =
-  | { status: "started"; entry: TimeEntry; replaced?: TimeEntry }
-  | { status: "cancelled"; running?: TimeEntry };
+  { status: "started"; entry: TimeEntry; replaced?: TimeEntry } | { status: "cancelled"; running?: TimeEntry };
 
 async function findRunning(ctx: WorkflowContext, runningEntryId?: string): Promise<TimeEntry | undefined> {
   try {
@@ -30,7 +29,7 @@ async function findRunning(ctx: WorkflowContext, runningEntryId?: string): Promi
 
 async function withConflictResolution(
   ctx: WorkflowContext,
-  attempt: (replaceRunning: boolean) => Promise<TimeEntry | undefined>
+  attempt: (replaceRunning: boolean) => Promise<TimeEntry | undefined>,
 ): Promise<StartResult> {
   try {
     const entry = await attempt(false);
@@ -80,7 +79,7 @@ export function restartEntry(ctx: WorkflowContext, entry: TimeEntry): Promise<St
   if (!canRestart) return Promise.reject(new KeitoError("locked", reason ?? "This entry cannot be restarted."));
   if (entry.isRunning) return Promise.resolve({ status: "started", entry });
   return withConflictResolution(ctx, (replaceRunning) =>
-    ctx.api.restartTimeEntry(entry.id, { replaceRunning }, ctx.lookup)
+    ctx.api.restartTimeEntry(entry.id, { replaceRunning }, ctx.lookup),
   );
 }
 
@@ -161,7 +160,7 @@ export function planEntry(
     /** Workspace settings reported by GET /users/me. */
     requireNotes?: boolean;
     allowPastTimerStarts?: boolean;
-  }
+  },
 ): EntryPlan {
   const { mode, existing } = options;
   if (!values.projectId) return { kind: "error", field: "project", message: "Choose a project." };

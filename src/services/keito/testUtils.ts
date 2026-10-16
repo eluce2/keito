@@ -59,7 +59,7 @@ export function mockFetch(routes: Record<string, Handler | Handler[]>) {
 
 export function makeApi(
   routes: Record<string, Handler | Handler[]>,
-  options: { perPage?: number; maxPages?: number } = {}
+  options: { perPage?: number; maxPages?: number } = {},
 ) {
   const { fetch, calls } = mockFetch(routes);
   const sleeps: number[] = [];

@@ -55,7 +55,7 @@ export function getAuthConfig(): AuthConfig {
  * or no-view command. Background refreshes and the menu bar never start a sign-in.
  */
 export function canSignInInteractively(): boolean {
-  return environment.launchType === LaunchType.UserInitiated && environment.commandMode !== "menu-bar";
+  return environment.launchType === LaunchType.UserInitiated && environment.entryPointMode !== "menu-bar";
 }
 
 let cachedApi: { key: string; api: KeitoApi } | undefined;
@@ -103,7 +103,7 @@ export async function getSession(options: { force?: boolean } = {}): Promise<Res
 }
 
 export async function getWorkflowContext(
-  options: { interactive?: boolean } = {}
+  options: { interactive?: boolean } = {},
 ): Promise<WorkflowContext & { session: ResolvedSession }> {
   const session = await getSession();
   return {
@@ -153,7 +153,7 @@ export async function showKeitoError(error: unknown, fallbackTitle = "Keito requ
   console.error(
     isKeitoError(error)
       ? `Keito error: ${error.kind} (${error.status ?? "no status"})`
-      : `Keito error: ${errorMessage(error)}`
+      : `Keito error: ${errorMessage(error)}`,
   );
   const setup = isKeitoError(error) && error.isSetupProblem;
   await showToast({
@@ -167,8 +167,8 @@ export async function showKeitoError(error: unknown, fallbackTitle = "Keito requ
             onAction: () => launchCommand({ name: "connection", type: LaunchType.UserInitiated }),
           }
         : setup
-        ? { title: "Open Extension Preferences", onAction: () => openExtensionPreferences() }
-        : undefined,
+          ? { title: "Open Extension Preferences", onAction: () => openExtensionPreferences() }
+          : undefined,
   });
 }
 
@@ -195,7 +195,7 @@ export function useProjects(scope: string | undefined) {
       execute: !!scope,
       keepPreviousData: false,
       onError: (error) => showKeitoError(error, "Could not load projects"),
-    }
+    },
   );
   const byId = useMemo(() => new Map<string, Project>((result.data ?? []).map((p) => [p.id, p])), [result.data]);
   return { ...result, data: result.data ?? [], byId };
@@ -210,9 +210,9 @@ export function useProjectTasks(scope: string | undefined, projectId: string | n
       execute: !!scope && !!projectId,
       keepPreviousData: false,
       onError: (error) => showKeitoError(error, "Could not load tasks"),
-    }
+    },
   );
-  return { ...result, data: projectId ? result.data ?? [] : [] };
+  return { ...result, data: projectId ? (result.data ?? []) : [] };
 }
 
 export function useTimeEntries(session: ResolvedSession | undefined, date: string) {
@@ -224,7 +224,7 @@ export function useTimeEntries(session: ResolvedSession | undefined, date: strin
       execute: !!session,
       keepPreviousData: true,
       onError: (error) => showKeitoError(error, "Could not load time entries"),
-    }
+    },
   );
   return { ...result, data: result.data ?? [] };
 }

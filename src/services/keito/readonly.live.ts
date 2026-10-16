@@ -46,11 +46,11 @@ function keyTypes(obj: Record<string, unknown> | undefined): Record<string, stri
       v === null
         ? "null"
         : Array.isArray(v)
-        ? "array"
-        : typeof v === "object"
-        ? `object{${Object.keys(v as object).join(",")}}`
-        : typeof v,
-    ])
+          ? "array"
+          : typeof v === "object"
+            ? `object{${Object.keys(v as object).join(",")}}`
+            : typeof v,
+    ]),
   );
 }
 
@@ -138,7 +138,7 @@ describe("live read-only: discovery", () => {
         Object.entries(envelope.links ?? {}).map(([k, v]) => [
           k,
           typeof v === "string" ? (v.startsWith("http") ? "absolute" : "relative") : v,
-        ])
+        ]),
       ),
       totalEntries: envelope.total_entries,
       totalPages: envelope.total_pages,
@@ -199,7 +199,7 @@ describe("live read-only: time entries", () => {
         [...new Set(raw.map((r) => String(r.approval_status)))].map((s) => [
           s,
           raw.filter((r) => String(r.approval_status) === s).length,
-        ])
+        ]),
       ),
       locked: count((e) => e.isLocked),
       closed: count((e) => e.isClosed),

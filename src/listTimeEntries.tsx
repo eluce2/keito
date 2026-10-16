@@ -1,4 +1,16 @@
-import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, List, showHUD, showToast, Toast } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Alert,
+  Color,
+  confirmAlert,
+  Icon,
+  List,
+  showHUD,
+  showToast,
+  Toast,
+  Keyboard,
+} from "@raycast/api";
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { KeitoGate } from "./components/KeitoGate";
@@ -7,6 +19,7 @@ import { approvalLabel, enrichEntry, entryEditability } from "./services/keito/n
 import { ResolvedSession } from "./services/keito/session";
 import { TimeEntry } from "./services/keito/types";
 import { restartEntry, startTimer, StartResult } from "./services/keito/workflows";
+import { primaryShortcut } from "./shortcuts";
 import {
   confirmReplaceRunning,
   formatHours,
@@ -57,9 +70,9 @@ function Timesheet({ session }: { session: ResolvedSession }) {
     () =>
       sortEntries(
         data.map((e) => enrichEntry(e, byId)),
-        sortBy
+        sortBy,
       ),
-    [data, byId, sortBy]
+    [data, byId, sortBy],
   );
   const total = useMemo(() => entries.reduce((sum, e) => sum + e.hours, 0), [entries]);
 
@@ -132,13 +145,13 @@ function Timesheet({ session }: { session: ResolvedSession }) {
         <Action.Push
           title="New Time Entry"
           icon={Icon.Plus}
-          shortcut={{ key: "n", modifiers: ["cmd"] }}
+          shortcut={Keyboard.Shortcut.Common.New}
           target={<EntryForm session={session} viewDate={dayjs(date).toDate()} onSave={afterChange} />}
         />
         <Action
           title="Refresh"
           icon={Icon.ArrowClockwise}
-          shortcut={{ key: "r", modifiers: ["cmd"] }}
+          shortcut={Keyboard.Shortcut.Common.Refresh}
           onAction={afterChange}
         />
         <OpenKeitoAction />
@@ -147,20 +160,20 @@ function Timesheet({ session }: { session: ResolvedSession }) {
         <Action
           title="Previous Day"
           icon={Icon.ArrowLeft}
-          shortcut={{ key: "arrowLeft", modifiers: ["cmd"] }}
+          shortcut={primaryShortcut("arrowLeft")}
           onAction={() => changeDate(-1)}
         />
         <Action
           title="Next Day"
           icon={Icon.ArrowRight}
-          shortcut={{ key: "arrowRight", modifiers: ["cmd"] }}
+          shortcut={primaryShortcut("arrowRight")}
           onAction={() => changeDate(1)}
         />
         {!isToday && (
           <Action
             title="Back to Today"
             icon={Icon.Calendar}
-            shortcut={{ key: "t", modifiers: ["cmd"] }}
+            shortcut={primaryShortcut("t")}
             onAction={() => changeDate("today")}
           />
         )}
@@ -242,7 +255,7 @@ function Timesheet({ session }: { session: ResolvedSession }) {
                               spentDate: todayString(session),
                               notes: entry.notes || undefined,
                               externalReference: entry.externalReference,
-                            })
+                            }),
                           );
                           if (result?.status === "started") changeDate("today");
                         }}
@@ -252,14 +265,14 @@ function Timesheet({ session }: { session: ResolvedSession }) {
                       <Action.Push
                         title="Edit Time Entry"
                         icon={Icon.Pencil}
-                        shortcut={{ key: "e", modifiers: ["cmd"] }}
+                        shortcut={Keyboard.Shortcut.Common.Edit}
                         target={<EntryForm session={session} entry={entry} onSave={afterChange} />}
                       />
                     )}
                     <Action.Push
                       title="Duplicate Time Entry"
                       icon={Icon.Clipboard}
-                      shortcut={{ key: "d", modifiers: ["cmd"] }}
+                      shortcut={Keyboard.Shortcut.Common.Duplicate}
                       target={
                         <EntryForm
                           session={session}
@@ -280,7 +293,7 @@ function Timesheet({ session }: { session: ResolvedSession }) {
                         title="Delete Time Entry"
                         icon={Icon.Trash}
                         style={Action.Style.Destructive}
-                        shortcut={{ key: "x", modifiers: ["ctrl"] }}
+                        shortcut={Keyboard.Shortcut.Common.Remove}
                         onAction={() => remove(entry)}
                       />
                     )}

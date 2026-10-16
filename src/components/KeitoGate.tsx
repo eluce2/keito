@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Color, Icon, List, openExtensionPreferences } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, List, openExtensionPreferences, Keyboard } from "@raycast/api";
 import { ReactNode, useState } from "react";
 import { KEITO_API_KEYS_DOCS_URL, KEITO_WEB_URL } from "../services/keito/config";
 import { errorMessage, errorTitle, isKeitoError } from "../services/keito/errors";
@@ -14,12 +14,12 @@ export function SetupActions({ onRetry, signedOut }: { onRetry?: () => void; sig
         <Action
           title="Verify Connection Again"
           icon={Icon.ArrowClockwise}
-          shortcut={{ modifiers: ["cmd"], key: "r" }}
+          shortcut={Keyboard.Shortcut.Common.Refresh}
           onAction={onRetry}
         />
       )}
       <Action.OpenInBrowser title="Open Keito Setup Guide" url={KEITO_API_KEYS_DOCS_URL} />
-      <Action.OpenInBrowser title="Open Keito" url={KEITO_WEB_URL} shortcut={{ modifiers: ["cmd"], key: "o" }} />
+      <Action.OpenInBrowser title="Open Keito" url={KEITO_WEB_URL} shortcut={Keyboard.Shortcut.Common.Open} />
     </>
   );
 }

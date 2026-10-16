@@ -69,7 +69,7 @@ export async function resolveSession(
   credentials: KeitoCredentials | string,
   fetchIdentity: () => Promise<KeitoIdentity>,
   store: KeyValueStore,
-  options: { force?: boolean; now?: Date; maxAgeMs?: number } = {}
+  options: { force?: boolean; now?: Date; maxAgeMs?: number } = {},
 ): Promise<ResolvedSession> {
   const now = options.now ?? new Date();
   const fingerprint = typeof credentials === "string" ? credentials : credentialFingerprint(credentials);
@@ -119,7 +119,7 @@ export async function invalidateSessionOnSetupError(error: unknown, store: KeyVa
  */
 export async function resetLocalData(
   store: KeyValueStore,
-  options: { includeFavorites?: boolean } = {}
+  options: { includeFavorites?: boolean } = {},
 ): Promise<number> {
   const keys = Object.keys(await store.allItems());
   let removed = 0;

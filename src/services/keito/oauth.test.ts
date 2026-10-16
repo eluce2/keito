@@ -172,7 +172,7 @@ describe("access tokens and refresh-token rotation", () => {
   it("uses a fresh access token without calling the token endpoint", async () => {
     const endpoint = tokenEndpoint(() => ({ body: {} }));
     expect(await oauth(memoryTokens(signedIn(200_000)), endpoint.fetch).getAccessToken({ interactive: false })).toBe(
-      "access-old"
+      "access-old",
     );
     expect(endpoint.calls).toHaveLength(0);
   });
@@ -208,7 +208,7 @@ describe("access tokens and refresh-token rotation", () => {
     const endpoint = tokenEndpoint((p) =>
       p.refresh_token === "refresh-old"
         ? { body: { access_token: "access-new", refresh_token: "refresh-new", expires_in: 300 } }
-        : { status: 400, body: { error: "invalid_grant" } }
+        : { status: 400, body: { error: "invalid_grant" } },
     );
     const client = oauth(store, endpoint.fetch);
     const tokens = await Promise.all([1, 2, 3].map(() => client.getAccessToken({ interactive: false })));
@@ -231,7 +231,7 @@ describe("access tokens and refresh-token rotation", () => {
     const store = memoryTokens(signedIn(-1));
     const endpoint = tokenEndpoint(
       () => ({ status: 400, body: { error: "invalid_grant" } }),
-      () => ({ body: { access_token: "access-signed-in", expires_in: 300 } })
+      () => ({ body: { access_token: "access-signed-in", expires_in: 300 } }),
     );
     const auth = authorizer();
     const client = oauth(store, endpoint.fetch, { authorizer: auth });
@@ -298,7 +298,7 @@ describe("Keito API requests with OAuth", () => {
 
   it("identifies the account without a Company ID", () => {
     expect(
-      normalizeIdentity({ ...fullAccessMe, company: { id: "cm_any", name: "Acme" } }, undefined, [], "oauth")
+      normalizeIdentity({ ...fullAccessMe, company: { id: "cm_any", name: "Acme" } }, undefined, [], "oauth"),
     ).toMatchObject({
       companyId: "cm_any",
       credentialType: "oauth",
@@ -316,10 +316,10 @@ describe("choosing the sign-in method", () => {
       accountId: "cm1",
     });
     expect(() => resolveAuthConfig({ token: "kto_abc" })).toThrow(
-      expect.objectContaining({ kind: "malformed_credentials" })
+      expect.objectContaining({ kind: "malformed_credentials" }),
     );
     expect(() => resolveAuthConfig({ accountID: "cm1" })).toThrow(
-      expect.objectContaining({ kind: "malformed_credentials" })
+      expect.objectContaining({ kind: "malformed_credentials" }),
     );
   });
 

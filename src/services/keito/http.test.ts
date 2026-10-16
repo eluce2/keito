@@ -6,7 +6,7 @@ import { makeApi, mockFetch, page, TEST_ACCOUNT, TEST_TOKEN } from "./testUtils"
 
 function client(
   routes: Parameters<typeof mockFetch>[0],
-  options: { maxPages?: number; maxRetryWaitSeconds?: number } = {}
+  options: { maxPages?: number; maxRetryWaitSeconds?: number } = {},
 ) {
   const { fetch, calls } = mockFetch(routes);
   const sleeps: number[] = [];
@@ -38,7 +38,7 @@ describe("validateCredentials (onboarding)", () => {
   it("requires both values", () => {
     expect(() => validateCredentials({ token: "", accountID: "x" })).toThrowError(/Settings → API & Developers/);
     expect(() => validateCredentials({ token: "kto_a", accountID: " " })).toThrow(
-      expect.objectContaining({ kind: "missing_credentials" })
+      expect.objectContaining({ kind: "missing_credentials" }),
     );
   });
 
@@ -221,7 +221,7 @@ describe("KeitoHttpClient pagination", () => {
     let n = 0;
     const endless = client(
       { "GET /api/v2/projects": () => page("projects", [{ id: n }], `/api/v2/projects?page=${++n + 1}`) },
-      { maxPages: 3 }
+      { maxPages: 3 },
     );
     expect((await rejection(endless.http.paginate("/projects", "projects"))).message).toMatch(/Stopped after 3 pages/);
     expect(endless.calls).toHaveLength(3);
@@ -252,13 +252,13 @@ describe("KeitoApi endpoint shapes", () => {
           page(
             "projects",
             [{ id: 101, name: "Numeric", client: { id: 9, name: "Acme" } }],
-            "/api/v2/projects?page=2&per_page=1"
+            "/api/v2/projects?page=2&per_page=1",
           ),
           page("projects", [{ id: "cmp2", name: "Second", client_id: "cmc2" }, { name: "no id" }]),
         ],
         "GET /api/v2/tasks": page("tasks", [{ id: "cmt1", name: "Design" }]),
       },
-      { perPage: 1 }
+      { perPage: 1 },
     );
     const projects = await api.listProjects();
     expect(projects).toEqual([
@@ -307,10 +307,10 @@ describe("KeitoApi endpoint shapes", () => {
   it("guards invalid timer bodies before sending", async () => {
     const { api, calls } = makeApi({});
     await expect(
-      api.createTimeEntry({ project_id: "p", task_id: "t", spent_date: "2026-10-15", is_running: true, hours: 1 })
+      api.createTimeEntry({ project_id: "p", task_id: "t", spent_date: "2026-10-15", is_running: true, hours: 1 }),
     ).rejects.toMatchObject({ kind: "validation" });
     await expect(
-      api.createTimeEntry({ project_id: "p", task_id: "t", spent_date: "2026-10-15", replace_running: true })
+      api.createTimeEntry({ project_id: "p", task_id: "t", spent_date: "2026-10-15", replace_running: true }),
     ).rejects.toMatchObject({ kind: "validation" });
     await expect(api.updateTimeEntry("e1", {})).rejects.toMatchObject({ kind: "validation" });
     expect(calls).toHaveLength(0);

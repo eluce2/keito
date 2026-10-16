@@ -56,7 +56,7 @@ function describeError(error: unknown) {
 async function expectKeitoError(promise: Promise<unknown>): Promise<KeitoError> {
   const error = await promise.then(
     () => undefined,
-    (e) => e
+    (e) => e,
   );
   expect(error).toBeInstanceOf(KeitoError);
   return error as KeitoError;
@@ -95,12 +95,12 @@ describe.runIf(enabled)("live writes", () => {
         cleanup.push("deleted");
       } catch (error) {
         cleanup.push(
-          isKeitoError(error) && error.kind === "not_found" ? "already gone" : `FAILED ${describeError(error).kind}`
+          isKeitoError(error) && error.kind === "not_found" ? "already gone" : `FAILED ${describeError(error).kind}`,
         );
       }
     }
     const leftovers = (await api.listTimeEntries({ userId: identity.userId, from: today, to: today })).filter((e) =>
-      e.notes.startsWith(label)
+      e.notes.startsWith(label),
     );
     report.cleanup = { created: created.size, results: cleanup, leftovers: leftovers.length };
     if (previouslyRunning) {
@@ -109,14 +109,14 @@ describe.runIf(enabled)("live writes", () => {
     }
     report.requests = exchanges;
     console.log(
-      `\nLIVE WRITE REPORT\n${JSON.stringify(report, null, 2).split(credentials.accountId).join("<company-id>")}`
+      `\nLIVE WRITE REPORT\n${JSON.stringify(report, null, 2).split(credentials.accountId).join("<company-id>")}`,
     );
   });
 
   it("creates, edits, and re-times a completed entry", async () => {
     const plan = planEntry(
       { projectId: project.id, taskId: tasks[0].id, spentDate: today, notes: `${label} manual`, duration: "15m" },
-      { mode: "duration", requireNotes: identity.settings.requireNotes }
+      { mode: "duration", requireNotes: identity.settings.requireNotes },
     );
     expect(plan.kind).toBe("create");
     if (plan.kind !== "create") return;
@@ -138,7 +138,7 @@ describe.runIf(enabled)("live writes", () => {
         notes: `${label} manual edited`,
         duration: "0:30",
       },
-      { mode: "duration", existing: entry }
+      { mode: "duration", existing: entry },
     );
     expect(update).toMatchObject({
       kind: "update",
@@ -157,7 +157,7 @@ describe.runIf(enabled)("live writes", () => {
         startTime: "08:00",
         endTime: "8:45am",
       },
-      { mode: "start_end", existing: edited }
+      { mode: "start_end", existing: edited },
     );
     if (retime.kind !== "update") throw new Error(JSON.stringify(retime));
     const retimed = await api.updateTimeEntry(retime.id, retime.body);
@@ -183,7 +183,7 @@ describe.runIf(enabled)("live writes", () => {
     report.timerA = { timerStartedAt: !!a.entry.timerStartedAt, startedTime: a.entry.startedTime ?? null };
 
     const conflict = await expectKeitoError(
-      startTimer(ctx(), { projectId: project.id, taskId: tasks[1].id, spentDate: today, notes: `${label} timer B` })
+      startTimer(ctx(), { projectId: project.id, taskId: tasks[1].id, spentDate: today, notes: `${label} timer B` }),
     );
     report.conflict = describeError(conflict);
     expect(conflict.kind).toBe("running_timer_conflict");
@@ -225,7 +225,7 @@ describe.runIf(enabled)("live writes", () => {
     const other = [...created].find((id) => id !== stoppedEntry.id)!;
     // GET /time_entries/:id returns 405 live, so find the entry in today's list.
     const otherEntry = (await api.listTimeEntries({ userId: identity.userId, from: today, to: today })).find(
-      (e) => e.id === other
+      (e) => e.id === other,
     )!;
     const restartConflict = await expectKeitoError(restartEntry(ctx(), otherEntry));
     report.restartConflict = describeError(restartConflict);
@@ -248,7 +248,7 @@ describe.runIf(enabled)("live writes", () => {
   it("reports Keito's errors for locked time and task/project mismatches", async () => {
     const from = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
     const approved = (await api.listTimeEntries({ userId: identity.userId, from, to: today })).find(
-      (e) => e.approvalStatus === "approved"
+      (e) => e.approvalStatus === "approved",
     );
     if (approved) {
       // No-op edit: identical notes. Keito should refuse because the entry is locked.
@@ -306,7 +306,7 @@ describe.runIf(enabled)("live writes", () => {
         hours: 0.1,
         notes: `${label} delete`,
         source: "api",
-      })
+      }),
     );
     await api.deleteTimeEntry(entry.id);
     created.delete(entry.id);

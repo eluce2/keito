@@ -28,7 +28,7 @@ export type EntryModePreference = "company" | "duration" | "start_end";
 /** "company" follows Keito's manual entry format; anything other than a start/end format means duration. */
 export function resolveEntryMode(
   preference: EntryModePreference | undefined,
-  settings: Pick<WorkspaceSettings, "manualEntryFormat"> | undefined
+  settings: Pick<WorkspaceSettings, "manualEntryFormat"> | undefined,
 ): "duration" | "start_end" {
   if (preference === "duration" || preference === "start_end") return preference;
   return /start|end|time/i.test(settings?.manualEntryFormat ?? "") ? "start_end" : "duration";

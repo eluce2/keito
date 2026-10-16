@@ -42,7 +42,7 @@ export interface EntryFormProps {
 }
 
 export function groupProjectsByClient(
-  projects: Project[]
+  projects: Project[],
 ): { clientKey: string; clientName: string; projects: Project[] }[] {
   const groups = new Map<string, { clientKey: string; clientName: string; projects: Project[] }>();
   for (const project of projects) {
@@ -100,12 +100,12 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
   const { data: tasks, isLoading: isLoadingTasks } = useProjectTasks(session.scope, projectId);
   const [notes, setNotes] = useState(source?.notes ?? "");
   const [duration, setDuration] = useState(
-    source && !source.isRunning ? formatHoursValue(source.hours, timeFormat) : ""
+    source && !source.isRunning ? formatHoursValue(source.hours, timeFormat) : "",
   );
   const [startTime, setStartTime] = useState(entry?.startedTime ?? "");
-  const [endTime, setEndTime] = useState(entry && !isRunning ? entry.endedTime ?? "" : "");
+  const [endTime, setEndTime] = useState(entry && !isRunning ? (entry.endedTime ?? "") : "");
   const [spentDate, setSpentDate] = useState<Date>(
-    entry ? dayjs(entry.spentDate).toDate() : viewDate ?? dayjs(todayString(session)).toDate()
+    entry ? dayjs(entry.spentDate).toDate() : (viewDate ?? dayjs(todayString(session)).toDate()),
   );
   const [errors, setErrors] = useState<Partial<Record<Exclude<EntryField, "form">, string>>>({});
 
@@ -161,7 +161,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
         externalReference: template?.externalReference,
         requireNotes: settings.requireNotes,
         allowPastTimerStarts: settings.allowPastTimerStarts,
-      }
+      },
     );
 
     if (plan.kind === "error") {
@@ -187,7 +187,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
       if (plan.kind === "timer") {
         const result = await startTimer(
           { api, userId: session.identity.userId, confirmReplace: confirmReplaceRunning },
-          plan.input
+          plan.input,
         );
         if (result.status === "cancelled") {
           await toast.hide();
@@ -216,8 +216,8 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
   const submitTitle = isEdit
     ? "Update Time Entry"
     : (mode === "duration" ? duration.trim() : endTime.trim())
-    ? "Create Time Entry"
-    : "Start Timer";
+      ? "Create Time Entry"
+      : "Start Timer";
 
   return (
     <Form

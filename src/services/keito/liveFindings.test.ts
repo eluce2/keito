@@ -37,7 +37,7 @@ describe("workspace settings from /users/me", () => {
 
   it("explains when the identity cannot track time", () => {
     expect(() => normalizeIdentity({ ...liveMe, capabilities: { can_track_time: false } }, TEST_ACCOUNT)).toThrow(
-      expect.objectContaining({ kind: "tracking_not_allowed", isSetupProblem: true })
+      expect.objectContaining({ kind: "tracking_not_allowed", isSetupProblem: true }),
     );
   });
 
@@ -90,7 +90,7 @@ describe("live response details", () => {
         startTime: "9:05",
         endTime: "17:30",
       },
-      { mode: "start_end", existing: entry }
+      { mode: "start_end", existing: entry },
     );
     expect(plan).toEqual({ kind: "update", id: entry.id, body: { notes: "new" } });
   });
@@ -122,7 +122,7 @@ describe("workspace rules in the entry form", () => {
       field: "startTime",
     });
     expect(
-      planEntry({ ...base, startTime: "9", endTime: "10" }, { mode: "start_end", allowPastTimerStarts: false })
+      planEntry({ ...base, startTime: "9", endTime: "10" }, { mode: "start_end", allowPastTimerStarts: false }),
     ).toMatchObject({
       kind: "create",
     });
@@ -138,7 +138,7 @@ describe("live error shapes", () => {
       errorFromResponse(403, {
         error: "forbidden",
         error_description: "This time entry is locked and cannot be edited",
-      })
+      }),
     ).toMatchObject({
       kind: "locked",
       message: "This time entry is locked and cannot be edited",
@@ -147,7 +147,7 @@ describe("live error shapes", () => {
       errorFromResponse(403, {
         error: "forbidden",
         error_description: "This time entry is locked and cannot be restarted",
-      }).kind
+      }).kind,
     ).toBe("locked");
     expect(errorFromResponse(403, { error: "project_not_assigned" }).kind).toBe("forbidden");
   });

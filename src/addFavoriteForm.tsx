@@ -1,4 +1,4 @@
-import { Action, Form, Icon, useNavigation } from "@raycast/api";
+import { Action, Form, Icon, useNavigation, Keyboard } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { Favorite, normalizeFavoriteHours } from "./services/keito/favorites";
 import { formatHours as formatHoursValue } from "./services/keito/normalize";
@@ -14,7 +14,7 @@ export function AddFavoriteAction({ session, onSave }: { session: ResolvedSessio
     <Action.Push
       target={<FavoriteForm session={session} onSave={onSave} />}
       title="Add New Favorite"
-      shortcut={{ key: "n", modifiers: ["cmd"] }}
+      shortcut={Keyboard.Shortcut.Common.New}
       icon={Icon.Plus}
     />
   );
@@ -33,7 +33,7 @@ export function EditFavoriteAction({
     <Action.Push
       target={<FavoriteForm session={session} favorite={favorite} onSave={onSave} />}
       title="Edit Favorite"
-      shortcut={{ key: "e", modifiers: ["cmd"] }}
+      shortcut={Keyboard.Shortcut.Common.Edit}
       icon={Icon.Pencil}
     />
   );

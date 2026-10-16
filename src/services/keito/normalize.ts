@@ -47,7 +47,7 @@ export function normalizeIdentity(
   /** Company ID from preferences; undefined for OAuth, where Keito resolves the company from the token. */
   configuredAccountId: string | undefined,
   features: string[] = [],
-  credentialType: "full_access" | "oauth" = "full_access"
+  credentialType: "full_access" | "oauth" = "full_access",
 ): KeitoIdentity {
   const userId = toId(raw?.id);
   if (!userId) throw new KeitoError("unexpected_response", "Keito's /users/me response did not include a user ID.");
@@ -60,26 +60,26 @@ export function normalizeIdentity(
   if (isReadOnly) {
     throw new KeitoError(
       "read_only_key",
-      "This is a personal read-only sync key. It cannot list tasks or start, stop, create, edit, or delete time. Ask a Keito Administrator to create a full-access integration key bound to you (Settings → API & Developers → Integration keys → All permitted operations)."
+      "This is a personal read-only sync key. It cannot list tasks or start, stop, create, edit, or delete time. Ask a Keito Administrator to create a full-access integration key bound to you (Settings → API & Developers → Integration keys → All permitted operations).",
     );
   }
   if (!companyId) {
     throw new KeitoError(
       "unexpected_response",
-      "Keito's /users/me response did not include a company. The key may not be a full-access integration key."
+      "Keito's /users/me response did not include a company. The key may not be a full-access integration key.",
     );
   }
   if (configuredAccountId !== undefined && companyId !== configuredAccountId) {
     throw new KeitoError(
       "company_mismatch",
-      "The key resolved to a different Keito company than the Company ID in preferences. Check both values in Settings → API & Developers."
+      "The key resolved to a different Keito company than the Company ID in preferences. Check both values in Settings → API & Developers.",
     );
   }
 
   if (raw.capabilities?.can_track_time === false) {
     throw new KeitoError(
       "tracking_not_allowed",
-      "Your Keito identity is not allowed to track time in this company. Ask a Keito Administrator to check your role, or to bind the key to the person whose time you track."
+      "Your Keito identity is not allowed to track time in this company. Ask a Keito Administrator to check your role, or to bind the key to the person whose time you track.",
     );
   }
 

@@ -34,20 +34,20 @@ describe("identity (onboarding)", () => {
 
   it("explains that a personal read-only sync key cannot track time", () => {
     expect(() => normalizeIdentity(readOnlyMe, TEST_ACCOUNT)).toThrow(
-      expect.objectContaining({ kind: "read_only_key", message: expect.stringMatching(/Administrator.*full-access/) })
+      expect.objectContaining({ kind: "read_only_key", message: expect.stringMatching(/Administrator.*full-access/) }),
     );
   });
 
   it("rejects a key that resolves to another company", () => {
     expect(() => normalizeIdentity({ ...fullAccessMe, company: { id: "cmother" } }, TEST_ACCOUNT)).toThrow(
-      expect.objectContaining({ kind: "company_mismatch" })
+      expect.objectContaining({ kind: "company_mismatch" }),
     );
   });
 
   it("rejects responses without a user or company, and coerces numeric IDs", () => {
     expect(() => normalizeIdentity({}, TEST_ACCOUNT)).toThrow(expect.objectContaining({ kind: "unexpected_response" }));
     expect(() => normalizeIdentity({ id: "u" }, TEST_ACCOUNT)).toThrow(
-      expect.objectContaining({ kind: "unexpected_response" })
+      expect.objectContaining({ kind: "unexpected_response" }),
     );
     expect(normalizeIdentity({ id: 42, company: { id: 7 } }, "7")).toMatchObject({ userId: "42", companyId: "7" });
   });
@@ -96,7 +96,7 @@ describe("time entry normalization", () => {
     };
     const entry = normalizeTimeEntry(
       flat,
-      buildLookup([{ id: "10", name: "Mobile", clientId: "c1", clientName: "Beta" }], [{ id: "cmt", name: "QA" }])
+      buildLookup([{ id: "10", name: "Mobile", clientId: "c1", clientName: "Beta" }], [{ id: "cmt", name: "QA" }]),
     );
     expect(entry).toMatchObject({
       id: "5",
@@ -113,7 +113,7 @@ describe("time entry normalization", () => {
   it("derives hours from duration_seconds and rejects entries without IDs", () => {
     expect(normalizeTimeEntry({ id: "e", project_id: "p", task_id: "t", duration_seconds: 5400 }).hours).toBe(1.5);
     expect(() => normalizeTimeEntry({ id: "e", project_id: "p" })).toThrow(
-      expect.objectContaining({ kind: "unexpected_response" })
+      expect.objectContaining({ kind: "unexpected_response" }),
     );
   });
 
@@ -126,10 +126,10 @@ describe("time entry normalization", () => {
           service: "t.example",
           service_name: "Tracker",
         },
-      })
+      }),
     );
     expect(entry.externalReference).toEqual(
-      expect.objectContaining({ id: "123", permalink: "https://t.example/123", serviceName: "Tracker" })
+      expect.objectContaining({ id: "123", permalink: "https://t.example/123", serviceName: "Tracker" }),
     );
   });
 });
@@ -147,7 +147,7 @@ describe("approval and lock state", () => {
 
   it("uses locked_reason, honors Harvest-closed time, and leaves submitted time to the server", () => {
     expect(entryEditability(normalizeTimeEntry(rawEntry({ is_locked: true, locked_reason: "Invoiced" }))).reason).toBe(
-      "Invoiced"
+      "Invoiced",
     );
     expect(entryEditability(normalizeTimeEntry(rawEntry({ is_closed: true }))).canEdit).toBe(false);
     expect(entryEditability(normalizeTimeEntry(rawEntry({ approval_status: "submitted" }))).canEdit).toBe(true);

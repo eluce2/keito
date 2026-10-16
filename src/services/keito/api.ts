@@ -49,7 +49,7 @@ export class KeitoApi {
 
   async listTimeEntries(
     params: { userId: string; from: string; to: string; isRunning?: boolean },
-    lookup?: NameLookup
+    lookup?: NameLookup,
   ): Promise<TimeEntry[]> {
     const raw = await this.http.paginate<RawTimeEntry>("/time_entries", "time_entries", {
       user_id: params.userId,

@@ -1,4 +1,14 @@
-import { Color, getPreferenceValues, Icon, launchCommand, LaunchType, MenuBarExtra, open, showHUD } from "@raycast/api";
+import {
+  Color,
+  getPreferenceValues,
+  Icon,
+  launchCommand,
+  LaunchType,
+  MenuBarExtra,
+  open,
+  showHUD,
+  Keyboard,
+} from "@raycast/api";
 import { useCachedPromise, usePromise } from "@raycast/utils";
 import dayjs from "dayjs";
 import { useEffect } from "react";
@@ -7,6 +17,7 @@ import { errorMessage, errorTitle, isKeitoError } from "./services/keito/errors"
 import { syncStatusFile } from "./services/keito/statusFile";
 import { TimeEntry } from "./services/keito/types";
 import { describeEntry, formatHours, getApi, getSession, showKeitoError, todayString } from "./services/useKeito";
+import { primaryShortcut } from "./shortcuts";
 
 interface MenuBarPreferences {
   showTimerInMenuBar?: boolean;
@@ -47,7 +58,7 @@ export default function MenuBar() {
   const { data, isLoading, error, revalidate } = useCachedPromise(
     loadSnapshot,
     [session?.scope ?? "", session?.identity.userId ?? "", today],
-    { execute: !!session, keepPreviousData: true, onError: () => undefined }
+    { execute: !!session, keepPreviousData: true, onError: () => undefined },
   );
 
   const running = data?.running ?? null;
@@ -106,7 +117,7 @@ export default function MenuBar() {
           <MenuBarExtra.Item
             title="Stop Timer"
             icon={Icon.Stop}
-            shortcut={{ modifiers: ["cmd"], key: "s" }}
+            shortcut={primaryShortcut("s")}
             onAction={async () => {
               try {
                 await getApi().stopTimeEntry(running.id);
@@ -134,7 +145,7 @@ export default function MenuBar() {
         <MenuBarExtra.Item
           title="Refresh"
           icon={Icon.ArrowClockwise}
-          shortcut={{ modifiers: ["cmd"], key: "r" }}
+          shortcut={Keyboard.Shortcut.Common.Refresh}
           onAction={() => revalidate()}
         />
         <MenuBarExtra.Item title="Open Keito" icon={Icon.Globe} onAction={() => open(KEITO_WEB_URL)} />

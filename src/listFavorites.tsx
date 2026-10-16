@@ -11,11 +11,13 @@ import {
   showToast,
   Toast,
   useNavigation,
+  Keyboard,
 } from "@raycast/api";
 import { useFrecencySorting, usePromise } from "@raycast/utils";
 import { AddFavoriteAction, EditFavoriteAction } from "./addFavoriteForm";
 import { KeitoGate } from "./components/KeitoGate";
 import ListTimeEntries from "./listTimeEntries";
+import { primaryShortcut } from "./shortcuts";
 import {
   Favorite,
   favoriteAvailability,
@@ -94,7 +96,7 @@ function Favorites({ session }: { session: ResolvedSession }) {
       if (!projectTasks.some((t) => t.id === favorite.taskId)) {
         throw new KeitoError(
           "validation",
-          `“${favorite.taskName}” is no longer assigned to ${favorite.projectName}. Edit the favorite to choose another task.`
+          `“${favorite.taskName}” is no longer assigned to ${favorite.projectName}. Edit the favorite to choose another task.`,
         );
       }
       if (hasDuration) {
@@ -114,7 +116,7 @@ function Favorites({ session }: { session: ResolvedSession }) {
             taskId: favorite.taskId,
             spentDate: todayString(session),
             notes: favorite.notes,
-          }
+          },
         );
         if (result.status === "cancelled") {
           await toast.hide();
@@ -195,7 +197,7 @@ function Favorites({ session }: { session: ResolvedSession }) {
                     <Action
                       title="Reset Ranking"
                       icon={Icon.ArrowCounterClockwise}
-                      shortcut={{ key: "r", modifiers: ["cmd", "shift"] }}
+                      shortcut={primaryShortcut("r", ["shift"])}
                       onAction={async () => {
                         await resetRanking(favorite);
                         await showToast({ style: Toast.Style.Success, title: "Ranking Reset" });
@@ -205,7 +207,7 @@ function Favorites({ session }: { session: ResolvedSession }) {
                       title="Delete Favorite"
                       icon={Icon.Trash}
                       style={Action.Style.Destructive}
-                      shortcut={{ key: "x", modifiers: ["ctrl"] }}
+                      shortcut={Keyboard.Shortcut.Common.Remove}
                       onAction={() => remove(favorite)}
                     />
                   </ActionPanel.Section>

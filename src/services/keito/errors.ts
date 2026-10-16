@@ -93,14 +93,14 @@ export function errorFromResponse(status: number, body: unknown, retryAfterSecon
       /company/i.test(serverMessage ?? "")
         ? "Keito rejected the API key or Company ID. Check both in the extension preferences; the Company ID is in Settings → API & Developers. The key may also have been revoked or rotated."
         : "Keito rejected the API key. Check the Keito Integration API Key in the extension preferences, or ask your administrator whether it was revoked or rotated.",
-      details
+      details,
     );
   }
   if (status === 400 && /keito-account-id/i.test(serverMessage ?? "")) {
     return new KeitoError(
       "invalid_credentials",
       "Keito did not accept the Company ID. Copy it from Settings → API & Developers → Company ID.",
-      details
+      details,
     );
   }
   // Live Keito returns 403 "This time entry is locked and cannot be edited/restarted" for approved
@@ -112,7 +112,7 @@ export function errorFromResponse(status: number, body: unknown, retryAfterSecon
     return new KeitoError(
       "locked",
       serverMessage ?? "This time entry is approved or locked and cannot be changed.",
-      details
+      details,
     );
   }
   if (status === 403) {
@@ -120,14 +120,14 @@ export function errorFromResponse(status: number, body: unknown, retryAfterSecon
       "forbidden",
       serverMessage ??
         "Your Keito identity is not allowed to do this. Check that you are assigned to the project and that the key is a full-access integration key.",
-      details
+      details,
     );
   }
   if (status === 404) {
     return new KeitoError(
       "not_found",
       serverMessage ?? "Keito could not find that record, or it is not visible to your identity.",
-      details
+      details,
     );
   }
   if (status === 409 && code === "running_timer_conflict") {
@@ -149,7 +149,7 @@ export function errorFromResponse(status: number, body: unknown, retryAfterSecon
       retryAfterSeconds
         ? `Keito is rate limiting requests. Try again in ${retryAfterSeconds} seconds.`
         : "Keito is rate limiting requests. Try again shortly.",
-      details
+      details,
     );
   }
   if (status >= 500) {

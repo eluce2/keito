@@ -118,7 +118,7 @@ export class KeitoOAuth {
     } catch {
       throw new KeitoError(
         controller.signal.aborted ? "timeout" : "network",
-        "Could not reach Keito's sign-in service. Check your connection and try again."
+        "Could not reach Keito's sign-in service. Check your connection and try again.",
       );
     } finally {
       clearTimeout(timer);
@@ -176,7 +176,7 @@ export class KeitoOAuth {
       if (error instanceof GrantError) {
         throw new KeitoError(
           "signed_out",
-          `Keito did not accept the sign-in (${error.message}). Try signing in again.`
+          `Keito did not accept the sign-in (${error.message}). Try signing in again.`,
         );
       }
       throw error;
@@ -188,7 +188,7 @@ export class KeitoOAuth {
       if (claims?.nonce !== nonce || (aud !== undefined && !audiences.includes(this.config.clientId))) {
         throw new KeitoError(
           "signed_out",
-          "Keito's sign-in response did not match this request. Try signing in again."
+          "Keito's sign-in response did not match this request. Try signing in again.",
         );
       }
     }

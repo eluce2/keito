@@ -10,7 +10,7 @@ export interface FetchResponseLike {
 
 export type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal }
+  init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal },
 ) => Promise<FetchResponseLike>;
 
 export type QueryValue = string | number | boolean | undefined | null;
@@ -112,7 +112,7 @@ export class KeitoHttpClient {
     if (url.origin !== this.base.origin || !url.pathname.startsWith(`${basePath}/`)) {
       throw new KeitoError(
         "unexpected_response",
-        "Keito returned a link outside the configured API address; the request was not sent."
+        "Keito returned a link outside the configured API address; the request was not sent.",
       );
     }
     return url;
@@ -134,7 +134,7 @@ export class KeitoHttpClient {
   async request<T>(
     method: "GET" | "POST" | "PATCH" | "DELETE",
     pathOrUrl: string,
-    { query, body }: { query?: Query; body?: unknown } = {}
+    { query, body }: { query?: Query; body?: unknown } = {},
   ): Promise<KeitoResponse<T>> {
     const url = this.resolveUrl(pathOrUrl, query).toString();
     const payload = body === undefined ? undefined : JSON.stringify(body);
@@ -161,7 +161,7 @@ export class KeitoHttpClient {
       const timer = setTimeout(() => controller.abort(), this.options.timeoutMs);
       try {
         response = await this.fetchImpl(url, { method, headers, body: payload, signal: controller.signal });
-      } catch (error) {
+      } catch {
         const timedOut = controller.signal.aborted;
         if (idempotent && canRetry) {
           await this.sleep(1000 * 2 ** attempt);
@@ -171,7 +171,7 @@ export class KeitoHttpClient {
           timedOut ? "timeout" : "network",
           timedOut
             ? "Keito did not respond in time. Check your connection and try again."
-            : "Could not reach Keito. Check your internet connection and try again."
+            : "Could not reach Keito. Check your internet connection and try again.",
         );
       } finally {
         clearTimeout(timer);
@@ -243,7 +243,7 @@ export class KeitoHttpClient {
       if (page >= this.options.maxPages) {
         throw new KeitoError(
           "unexpected_response",
-          `Stopped after ${this.options.maxPages} pages of ${key}; narrow the request and try again.`
+          `Stopped after ${this.options.maxPages} pages of ${key}; narrow the request and try again.`,
         );
       }
       if (seen.has(next)) {

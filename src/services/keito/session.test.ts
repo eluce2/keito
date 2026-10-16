@@ -43,7 +43,7 @@ describe("resolveSession", () => {
     const changed = await resolveSession(
       { ...creds, token: "kto_rotated" },
       async () => identity("u2", "cmother"),
-      store
+      store,
     );
     expect(changed).toMatchObject({ verified: true, accountChanged: true, scope: "cmother:u2" });
     expect(favoritesKey(changed.scope)).not.toBe(favoritesKey(`${TEST_ACCOUNT}:u1`));
@@ -51,7 +51,7 @@ describe("resolveSession", () => {
     const rotatedSameUser = await resolveSession(
       { ...creds, token: "kto_rotated_again" },
       async () => identity("u2", "cmother"),
-      store
+      store,
     );
     expect(rotatedSameUser).toMatchObject({ verified: true, accountChanged: false });
   });

@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Cache, Color, Icon, List, showToast, Toast } from "@raycast/api";
+import { Action, ActionPanel, Cache, Color, Icon, List, showToast, Toast, Keyboard } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { useState } from "react";
 import { SetupActions } from "./components/KeitoGate";
@@ -7,6 +7,7 @@ import { resetLocalData } from "./services/keito/session";
 import { KeitoIdentity } from "./services/keito/types";
 import { getApi, getAuthConfig, getSession, refreshMenuBar, signOut, store } from "./services/useKeito";
 import { keitoOAuth } from "./services/keitoOAuth";
+import { primaryShortcut } from "./shortcuts";
 
 type CheckStatus = "pass" | "fail" | "skipped";
 
@@ -184,7 +185,7 @@ export default function Command() {
           title="Sign out of Keito"
           icon={Icon.Logout}
           style={Action.Style.Destructive}
-          shortcut={{ modifiers: ["cmd", "shift"], key: "l" }}
+          shortcut={primaryShortcut("l", ["shift"])}
           onAction={handleSignOut}
         />
       )}
@@ -192,7 +193,7 @@ export default function Command() {
         title="Clear Cached Keito Data"
         icon={Icon.Trash}
         style={Action.Style.Destructive}
-        shortcut={{ modifiers: ["ctrl"], key: "x" }}
+        shortcut={Keyboard.Shortcut.Common.Remove}
         onAction={resetAndVerify}
       />
     </ActionPanel>
@@ -267,8 +268,8 @@ export default function Command() {
                         identity.settings.allowPastTimerStarts === undefined
                           ? "Not reported"
                           : identity.settings.allowPastTimerStarts
-                          ? "Allowed"
-                          : "Not allowed"
+                            ? "Allowed"
+                            : "Not allowed"
                       }
                     />
                     {identity.settings.timeRoundingDescription && (

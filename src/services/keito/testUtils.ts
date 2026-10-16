@@ -3,7 +3,7 @@ import { KeitoApi } from "./api";
 import { FetchLike } from "./http";
 import { KeyValueStore } from "./session";
 
-export const TEST_TOKEN = "kto_test_secret_value_123";
+export const TEST_TOKEN = "kto_FAKE_test_secret_value_123";
 export const TEST_ACCOUNT = "cmcompany0001";
 
 export interface MockResponse {

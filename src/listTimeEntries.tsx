@@ -185,7 +185,6 @@ function Timesheet({ session }: { session: ResolvedSession }) {
     <List
       searchBarPlaceholder="Filter time entries"
       isLoading={isLoading}
-      navigationTitle={title}
       actions={<ActionPanel>{commonActions}</ActionPanel>}
     >
       <List.EmptyView

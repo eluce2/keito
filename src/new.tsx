@@ -221,7 +221,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
 
   return (
     <Form
-      navigationTitle={isEdit ? "Edit Time Entry" : template ? "Duplicate Time Entry" : "New Time Entry"}
+      navigationTitle={isEdit ? "Edit Time Entry" : template ? "Duplicate Time Entry" : undefined}
       isLoading={isLoadingProjects || isLoadingTasks || (!source && isLoadingLastProject)}
       actions={
         <ActionPanel>
@@ -273,6 +273,7 @@ export function EntryForm({ session, entry, template, viewDate, onSave }: EntryF
       <Form.TextArea
         id="notes"
         title="Notes"
+        placeholder="What did you work on?"
         value={notes}
         error={errors.notes}
         info={settings.requireNotes ? "Your Keito workspace requires notes." : undefined}

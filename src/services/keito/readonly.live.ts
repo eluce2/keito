@@ -106,7 +106,7 @@ describe("live read-only: onboarding", () => {
   it("classifies an invalid key", async () => {
     const bad = new KeitoApi({
       ...credentials,
-      token: "kto_invalid_for_live_test",
+      token: "kto_FAKE_invalid_for_live_test",
       fetch: recordingFetch,
       maxRetries: 0,
     });

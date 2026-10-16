@@ -250,11 +250,12 @@
     "build": "ray build -e dist",
     "dev": "ray develop",
     "lint": "ray lint",
-    "publish": "npm run test:run && npx @raycast/api@latest publish",
+    "publish": "npm run test:run && npm run lint && npm run build && npm run check:publish && npx @raycast/api@latest publish",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:live": "node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.live.config.ts",
-    "test:live:write": "KEITO_LIVE_WRITE=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run --config vitest.live.config.ts src/services/keito/writes.live.ts"
+    "test:live": "node --env-file=\"${KEITO_ENV_FILE:-$HOME/.config/keito-raycast/live.env}\" node_modules/vitest/vitest.mjs run --config vitest.live.config.ts",
+    "test:live:write": "KEITO_LIVE_WRITE=1 node --env-file=\"${KEITO_ENV_FILE:-$HOME/.config/keito-raycast/live.env}\" node_modules/vitest/vitest.mjs run --config vitest.live.config.ts src/services/keito/writes.live.ts",
+    "check:publish": "node scripts/check-publish.js"
   },
   "packageManager": "npm@11.15.0"
 }

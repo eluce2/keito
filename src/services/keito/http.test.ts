@@ -45,7 +45,7 @@ describe("validateCredentials (onboarding)", () => {
   it("rejects non-Keito keys, swapped fields, and whitespace without echoing the secret", () => {
     for (const input of [
       { token: "pat_harvest_token", accountID: "123" },
-      { token: "123", accountID: "kto_secret_in_wrong_field" },
+      { token: "123", accountID: "kto_FAKE_secret_in_wrong_field" },
       { token: "kto_abc def", accountID: "cm1" },
       { token: "kto_abc", accountID: "cm 1" },
     ]) {

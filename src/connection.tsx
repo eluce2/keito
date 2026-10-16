@@ -147,7 +147,7 @@ export default function Command() {
 
   if (signedOut) {
     return (
-      <List navigationTitle="Keito Connection">
+      <List>
         <List.EmptyView
           icon={Icon.Person}
           title="Signed Out"
@@ -200,7 +200,7 @@ export default function Command() {
   );
 
   return (
-    <List isLoading={isLoading} navigationTitle="Keito Connection" isShowingDetail={!!data}>
+    <List isLoading={isLoading} isShowingDetail={!!data}>
       {error && (
         <List.EmptyView
           icon={Icon.ExclamationMark}

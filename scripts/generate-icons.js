@@ -2,7 +2,7 @@
 //
 //   node scripts/generate-icons.js
 //
-// - assets/keito-icon.png: the Keito mark (assets/keito-mark.svg, traced from the official
+// - assets/keito-icon.png: the Keito mark (scripts/keito-mark.svg, traced from the official
 //   logo at https://keito.ai/images/keito-logo.png) in white on a Keito-color (#5046E5) tile.
 // - Command icons: the existing glyphs recolored from orange to the same color. The original
 //   orange versions are read from Git (first commit) so the script can be re-run.
@@ -24,7 +24,7 @@ function originalPng(name) {
 
 // Polygons from the official SVG (paths made of M/L commands).
 function markPolygons() {
-  const svg = fs.readFileSync(asset("keito-mark.svg"), "utf8");
+  const svg = fs.readFileSync(path.join(__dirname, "keito-mark.svg"), "utf8");
   const viewBox = svg.match(/viewBox="([^"]+)"/)[1].split(/\s+/).map(Number);
   const polygons = [...svg.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map(([, d]) => {
     const nums = d.replace(/[MLZ]/gi, " ").trim().split(/[\s,]+/).map(Number);

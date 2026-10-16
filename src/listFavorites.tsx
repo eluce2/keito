@@ -141,7 +141,6 @@ function Favorites({ session }: { session: ResolvedSession }) {
     <List
       searchBarPlaceholder="Filter favorites"
       isLoading={isLoading || isLoadingProjects}
-      navigationTitle="Favorites"
       actions={
         <ActionPanel>
           <AddFavoriteAction session={session} onSave={upsert} />

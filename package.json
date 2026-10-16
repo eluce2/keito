@@ -3,7 +3,7 @@
   "name": "keito",
   "title": "Keito",
   "description": "Track time in Keito: start, stop, and switch timers, log and edit entries, keep favorites, and see your running timer in the menu bar.",
-  "icon": "keito-icon.png",
+  "icon": "keito-icon-5046e5.png",
   "author": "eluce2",
   "contributors": [
     "bchopson",
@@ -20,7 +20,7 @@
   "commands": [
     {
       "name": "connection",
-      "icon": "keito-icon.png",
+      "icon": "keito-icon-5046e5.png",
       "title": "Keito Connection",
       "subtitle": "Keito",
       "description": "Check your Keito API key, Company ID, identity, and project/task access",
@@ -28,7 +28,7 @@
     },
     {
       "name": "new",
-      "icon": "keito-add.png",
+      "icon": "keito-add-5046e5.png",
       "title": "New Time Entry",
       "subtitle": "Keito",
       "description": "Start a Keito timer or log a completed time entry",
@@ -36,7 +36,7 @@
     },
     {
       "name": "listTimeEntries",
-      "icon": "keito-timer.png",
+      "icon": "keito-timer-5046e5.png",
       "title": "Today's Timesheet",
       "preferences": [
         {
@@ -77,7 +77,7 @@
     },
     {
       "name": "listFavorites",
-      "icon": "keito-favorite.png",
+      "icon": "keito-favorite-5046e5.png",
       "title": "Favorites",
       "subtitle": "Keito",
       "description": "Quick access to favorite time entries",
@@ -85,7 +85,7 @@
     },
     {
       "name": "stopTimer",
-      "icon": "keito-stop.png",
+      "icon": "keito-stop-5046e5.png",
       "title": "Stop Timer",
       "subtitle": "Keito",
       "description": "Stop your running timer",
@@ -93,7 +93,7 @@
     },
     {
       "name": "toggleTimer",
-      "icon": "keito-toggle.png",
+      "icon": "keito-toggle-5046e5.png",
       "title": "Toggle Timer",
       "subtitle": "Keito",
       "description": "Stop the running Keito timer, or restart today's most recent entry",
@@ -130,7 +130,7 @@
     },
     {
       "name": "resetLocalData",
-      "icon": "keito-icon.png",
+      "icon": "keito-icon-5046e5.png",
       "title": "Reset Local Keito Data",
       "subtitle": "Keito",
       "description": "Clear cached Keito projects, entries, and verified identity (favorites are kept)",

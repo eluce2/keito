@@ -129,7 +129,7 @@ The extension uses a small typed adapter instead ([`src/services/keito`](src/ser
 
 ## Icons
 
-`assets/keito-icon.png` shows the Keito mark in white on black, the official logo's colours. The mark ([`assets/keito-mark.svg`](assets/keito-mark.svg)) was traced from the official logo at `https://keito.ai/images/keito-logo.png`: three equal bars at 45°, matching the logo's pixels to within about 1%. The site's `favicon.svg` is a cramped variant and is not used. The command icons are the inherited glyphs, recoloured to black. To regenerate them, run `node scripts/generate-icons.js`. It has no dependencies and reads the original glyphs from the first Git commit.
+The extension icon (`assets/keito-icon-5046e5.png`) shows the Keito mark in white on Keito's brand colour `#5046E5`. The mark ([`assets/keito-mark.svg`](assets/keito-mark.svg)) was traced from the official logo at `https://keito.ai/images/keito-logo.png`: three equal bars at 45°, matching the logo's pixels to within about 1%. The site's `favicon.svg` is a cramped variant and is not used. The command icons are the inherited glyphs, recoloured to the same colour. File names include the colour, so changing it produces new names and Raycast can't show cached images. To regenerate them, run `node scripts/generate-icons.js`. It has no dependencies and reads the original glyphs from the first Git commit.
 
 ## Development
 

@@ -3,15 +3,16 @@
 //   node scripts/generate-icons.js
 //
 // - assets/keito-icon.png: the Keito mark (assets/keito-mark.svg, traced from the official
-//   logo at https://keito.ai/images/keito-logo.png) in white on a black tile, the logo's colors.
-// - Command icons: the existing glyphs recolored from orange to the same black. The original
+//   logo at https://keito.ai/images/keito-logo.png) in white on a Keito-color (#5046E5) tile.
+// - Command icons: the existing glyphs recolored from orange to the same color. The original
 //   orange versions are read from Git (first commit) so the script can be re-run.
 const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { readPng, writePng } = require("./png");
 
-const BRAND = [0, 0, 0]; // the official logo is black on white
+const BRAND = [0x50, 0x46, 0xe5]; // Keito brand color #5046E5
+const SUFFIX = BRAND.map((v) => v.toString(16).padStart(2, "0")).join("");
 const WHITE = [255, 255, 255];
 const root = path.join(__dirname, "..");
 const asset = (name) => path.join(root, "assets", name);
@@ -74,19 +75,20 @@ function extensionIcon() {
       if (covered) blend(pixels, i, WHITE, covered / samples ** 2);
     }
   }
-  fs.writeFileSync(asset("keito-icon.png"), writePng(width, height, pixels));
+  fs.writeFileSync(asset(`keito-icon-${SUFFIX}.png`), writePng(width, height, pixels));
 }
 
-// Command icons: white glyphs on orange -> white glyphs on black. Orange has a blue channel near
+// Command icons: white glyphs on orange -> white glyphs on Keito color. Orange has a blue channel near
 // 0 and white 255, so the blue channel gives the anti-aliased mix between tile and glyph.
-// Output files are prefixed "keito-" (a new name also makes Raycast drop its cached image).
+// Output names include the color, so a color change gets new file names and Raycast cannot show
+// cached images.
 function recolor(name) {
   const { width, height, pixels } = originalPng(name);
   for (let i = 0; i < pixels.length; i += 4) {
     const mix = pixels[i + 2] / 255;
     for (let k = 0; k < 3; k++) pixels[i + k] = Math.round(BRAND[k] * (1 - mix) + WHITE[k] * mix);
   }
-  fs.writeFileSync(asset(`keito-${name}`), writePng(width, height, pixels));
+  fs.writeFileSync(asset(`keito-${name.replace(".png", "")}-${SUFFIX}.png`), writePng(width, height, pixels));
 }
 
 extensionIcon();

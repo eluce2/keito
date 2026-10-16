@@ -5,7 +5,7 @@ import { SESSION_KEY } from "./keito/session";
 const client = new OAuth.PKCEClient({
   redirectMethod: OAuth.RedirectMethod.Web,
   providerName: "Keito",
-  providerIcon: "keito-icon.png",
+  providerIcon: "keito-icon-5046e5.png",
   providerId: "keito",
   description: "Sign in to Keito to track time from Raycast.",
 });

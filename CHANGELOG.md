@@ -1,5 +1,10 @@
 # Keito Changelog
 
+## [Inline Timer Confirmations] - {PR_MERGE_DATE}
+
+- Keep Raycast open by showing timer confirmations as inline success toasts
+- Stop running time entries before deleting them so deletion completes correctly
+
 ## [Accurate Running Timers] - {PR_MERGE_DATE}
 
 - Show accumulated time plus the active timer segment in the timesheet, menu bar, and daily totals

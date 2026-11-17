@@ -1,3 +1,4 @@
+import { KEITO_PURPLE } from "./colors";
 import {
   Action,
   ActionPanel,
@@ -223,8 +224,8 @@ function Timesheet({ session }: { session: ResolvedSession }) {
                   : []),
                 ...(!lock.canEdit ? [{ icon: Icon.Lock, tooltip: lock.reason }] : []),
                 {
-                  icon: entry.isRunning ? { source: Icon.Clock, tintColor: Color.Orange } : undefined,
-                  tag: { value: formatHours(entry.hours), color: entry.isRunning ? Color.Orange : Color.SecondaryText },
+                  icon: entry.isRunning ? { source: Icon.Clock, tintColor: KEITO_PURPLE } : undefined,
+                  tag: { value: formatHours(entry.hours), color: entry.isRunning ? KEITO_PURPLE : Color.SecondaryText },
                 },
               ]}
               actions={

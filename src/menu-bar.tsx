@@ -1,3 +1,4 @@
+import { KEITO_PURPLE } from "./colors";
 import {
   Color,
   getPreferenceValues,
@@ -93,7 +94,7 @@ export default function MenuBar() {
 
   return (
     <MenuBarExtra
-      icon={running ? { source: Icon.Clock, tintColor: Color.Orange } : Icon.Clock}
+      icon={running ? { source: Icon.Clock, tintColor: KEITO_PURPLE } : Icon.Clock}
       title={running && showTimerInMenuBar ? formatHours(running.hours) : undefined}
       tooltip={running ? `Keito: ${describeEntry(running)}` : "Keito: no timer running"}
       isLoading={sessionLoading || isLoading}

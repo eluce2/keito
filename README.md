@@ -68,6 +68,8 @@ A personal read-only sync key can't track time, and the extension tells you if y
 | Sort By (Timesheet) | Order entries by updated or created time |
 | Status Folder (Running Timer) | See below |
 
+Running durations in the timesheet and menu bar combine Keito's saved seconds with the time since the latest timer start. Restarting an entry preserves its earlier time. The clock checks every second and redraws when a displayed duration changes; changes made in Keito are fetched every minute or when you use **Refresh**. Durations follow your Time Format preference and do not apply workspace billing rounding.
+
 ### Status folder
 
 If you set **Status Folder** on the Running Timer command, the menu bar writes `currentTimer.json` to that folder while a timer runs and deletes the file when no timer is running. Automation tools such as Keyboard Maestro or Hazel can watch it. The menu bar command must be enabled. The file never contains credentials:
